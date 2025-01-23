@@ -1,0 +1,63 @@
+output_path: ./outputs/pig2cow_mv_ref_1000epo_l2_15
+gpu: 0
+seed: 99
+
+# CLIP-related
+text_prompt: a hippopotamuse
+base_text_prompt: a pig
+clip_model: ViT-B/32
+consistency_clip_model: ViT-B/32
+consistency_vit_stride: 8
+consistency_vit_layer: 11
+
+# Mesh
+# mesh: /data/caiweiwei/Open3D-main/data_mesh/objaverse_normalization_1 /32a399bfa6ad4de7b0328e92a389d732.obj #pig
+# mesh: /data/caiweiwei/Open3D-main/data_mesh/objaverse_normalize/41c1a302435f42ccb220fe48d491bb92.obj #cow
+# mesh: /data/caiweiwei/TextDeformer-main/meshes/bird.obj
+mesh: /data/caiweiwei/TextDeformer-main/meshes/pig.obj
+retriangulate: 0
+reference_image_dir: /data/caiweiwei/kohya_ss/data/mesh_four_image/cow
+# Render settings
+bsdf: diffuse
+
+# Hyper-parameters
+lr: 0.0025
+epochs: 1000
+clip_weight: 1.0
+sds_weight: 0  #cww add
+delta_clip_weight: 1.0
+regularize_jacobians_weight: 0.5
+l2_weight: 15.0
+consistency_loss_weight: 0.5
+consistency_elev_filter: 30
+consistency_azim_filter: 20
+batch_size: 20 #original=25
+train_res: 512
+resize_method: cubic
+lora_scale: 1.0 #cww add from apap
+clamp_val: 2.0  #cww add from apap
+cfg_scale: 100.0 #cww add from apap
+
+# Camera parameters
+fov_min: 30.0
+fov_max: 90.0
+dist_min: 2.5
+dist_max: 3.5
+light_power: 5.0
+elev_alpha: 1.0
+elev_beta: 5.0 
+elev_max: 60.0
+azim_min: 0.0
+azim_max: 360.0
+aug_loc: 1
+aug_light: 1
+aug_bkg: 1
+adapt_dist: 1
+
+log_interval: 5
+log_interval_im: 150
+log_elev: 30.0
+log_fov: 60.0
+log_dist: 3.0
+log_res: 512
+log_light_power: 3.0

@@ -1,0 +1,24 @@
+clip @ git+https://github.com/openai/CLIP.git@b46f5ac7587d2e1862f8b7b1573179d80dcdd620
+imageio
+cython
+imageio-ffmpeg
+kornia
+numpy
+#nvdiffrast
+Pillow
+PyGLM
+resize-right
+scipy
+smplx
+tqdm
+Ninja
+pyyaml
+matplotlib
+trimesh
+tensorboard
+easydict 
+cholespy 
+fire
+torch-scatter 
+torch-sparse
+pymeshlab
