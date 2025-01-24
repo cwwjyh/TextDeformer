@@ -704,64 +704,64 @@ def loop(cfg):
         # print("s_log:", s_log.grad)#None
 
         s_log_grid = make_grid_with_cat(s_log, nrow=3) #[3.672,672]
-        # # print("s_log_grid.requires_grad=", s_log_grid.requires_grad)  #  True
-        # # print("s_log_grid:", s_log_grid.grad) #只有在调用 backward() 之后，PyTorch 才会计算并填充张量的梯度。在调用 backward() 之前，所有张量的 .grad 属性都是 None
-        # # breakpoint()
-        # s_log_grid_bf16 = s_log_grid.to(torch.bfloat16).unsqueeze(0)  # 增加批次维度 [1,3,680,680]
-        # latents = pipe.vae.encode(s_log_grid_bf16).latent_dist.sample()  # 生成潜在空间表示 [1,16,85,85]
+        # print("s_log_grid.requires_grad=", s_log_grid.requires_grad)  #  True
+        # print("s_log_grid:", s_log_grid.grad) #只有在调用 backward() 之后，PyTorch 才会计算并填充张量的梯度。在调用 backward() 之前，所有张量的 .grad 属性都是 None
+        # breakpoint()
+        s_log_grid_bf16 = s_log_grid.to(torch.bfloat16).unsqueeze(0)  # 增加批次维度 [1,3,680,680]
+        latents = pipe.vae.encode(s_log_grid_bf16).latent_dist.sample()  # 生成潜在空间表示 [1,16,85,85]
 
-        # latents = shift_scale_latents(latents, vae_scale_factor) #
-        # print("latents.requires_grid:", latents.requires_grad) #True
+        latents = shift_scale_latents(latents, vae_scale_factor) #
+        print("latents.requires_grid:", latents.requires_grad) #True
 
     
-        # # 将 9 宫格图像转换为潜在空间表示并计算 SDS 损失
-        # with torch.no_grad():
-        #     # s_log_grid_bf16 = s_log_grid.to(torch.bfloat16).unsqueeze(0)  # 增加批次维度 [1,3,680,680]
-        #     # latents = pipe.vae.encode(s_log_grid_bf16).latent_dist.sample()  # 生成潜在空间表示 [1,16,85,85]
+        # 将 9 宫格图像转换为潜在空间表示并计算 SDS 损失
+        with torch.no_grad():
+            # s_log_grid_bf16 = s_log_grid.to(torch.bfloat16).unsqueeze(0)  # 增加批次维度 [1,3,680,680]
+            # latents = pipe.vae.encode(s_log_grid_bf16).latent_dist.sample()  # 生成潜在空间表示 [1,16,85,85]
 
-        #     # latents = shift_scale_latents(latents, vae_scale_factor) #latents.requires_grad=False
+            # latents = shift_scale_latents(latents, vae_scale_factor) #latents.requires_grad=False
 
-        #     # 计算 SDS 损失
-        #     noise_pred, target, sigmas, weighting = get_noise_pred_and_target(
-        #         cfg,  # 训练参数配置
-        #         accelerator,  # 加速器对象
-        #         noise_scheduler,  # 噪声调度器
-        #         latents,  # 潜在空间表示
-        #         text_encoder_conds,  # 文本编码器条件
-        #         unet,  # UNet 模型
-        #         weight_dtype,  # 权重数据类型 torch.float16 or torch.bfloat16
-        #         train_unet,  # 是否训练 UNet
-        #     )
-        #     if noise_pred is None:
-        #         raise ValueError("noise_pred is not assigned!")
+            # 计算 SDS 损失
+            noise_pred, target, sigmas, weighting = get_noise_pred_and_target(
+                cfg,  # 训练参数配置
+                accelerator,  # 加速器对象
+                noise_scheduler,  # 噪声调度器
+                latents,  # 潜在空间表示
+                text_encoder_conds,  # 文本编码器条件
+                unet,  # UNet 模型
+                weight_dtype,  # 权重数据类型 torch.float16 or torch.bfloat16
+                train_unet,  # 是否训练 UNet
+            )
+            if noise_pred is None:
+                raise ValueError("noise_pred is not assigned!")
 
-        # # sds_loss = torch.nn.functional.mse_loss(noise_pred, target, reduction='none') #sds_loss.shape=[1,16,84,84]
-        # # # sds_loss = sds_loss.mean([1, 2, 3]).item()  # sds_loss 被转换为标量（.item()），导致梯度信息丢失。
-        # # sds_loss = sds_loss.mean() # sds_shape=torch.Size() 
-        # # # sds_loss = sds_loss.mean([1, 2, 3])  # 计算并获取 SDS 损失值, sds_shape=torch.Size([1])  
-        # # print("sigmas = ", sigmas)
-        # # 选择 weighting_scheme
-        # weighting_scheme = "sigma_sort"  # 或 "cosmap"
-        # # 计算 weighting
-        # weighting = compute_loss_weighting_for_sd3(weighting_scheme, sigmas)
-        # print("weighting = ",weighting)
-        # grad = weighting*(noise_pred - target) 
-        # grad = torch.nan_to_num(grad)
-        # #这样手动指定梯度，可以梯度回传的时候有梯度了
-        # sds_loss = SpecifyGradient.apply(latents, grad) #tensor([1.], device='cuda:0', grad_fn=<SpecifyGradientBackward>) loss.requires_grad=True
+        # sds_loss = torch.nn.functional.mse_loss(noise_pred, target, reduction='none') #sds_loss.shape=[1,16,84,84]
+        # # sds_loss = sds_loss.mean([1, 2, 3]).item()  # sds_loss 被转换为标量（.item()），导致梯度信息丢失。
+        # sds_loss = sds_loss.mean() # sds_shape=torch.Size() 
+        # # sds_loss = sds_loss.mean([1, 2, 3])  # 计算并获取 SDS 损失值, sds_shape=torch.Size([1])  
+        # print("sigmas = ", sigmas)
+        # 选择 weighting_scheme
+        weighting_scheme = "sigma_sort"  # 或 "cosmap"
+        # 计算 weighting
+        weighting = compute_loss_weighting_for_sd3(weighting_scheme, sigmas)
+        print("weighting = ",weighting)
+        grad = weighting*(noise_pred - target) 
+        grad = torch.nan_to_num(grad)
+        #这样手动指定梯度，可以梯度回传的时候有梯度了
+        sds_loss = SpecifyGradient.apply(latents, grad) #tensor([1.], device='cuda:0', grad_fn=<SpecifyGradientBackward>) loss.requires_grad=True
 
-        # # print("sds_loss.requires_grad= ",sds_loss.requires_grad)  # True
-        # # logger.add_scalar('sds_loss', sds_loss, global_step=it)
+        print("sds_loss.requires_grad= ",sds_loss.requires_grad)  # True
+        logger.add_scalar('sds_loss', sds_loss, global_step=it)
 
-        # # # 平滑 SDS 损失
-        # # if it == 0:
-        # #     smooth_sds_loss = sds_losss
-        # # else:
-        # #     smooth_sds_loss = 0.9 * smooth_sds_loss + 0.1 * sds_loss
+        # 平滑 SDS 损失
+        if it == 0:
+            smooth_sds_loss = sds_loss
+        else:
+            smooth_sds_loss = 0.9 * smooth_sds_loss + 0.1 * sds_loss
 
-        # # 记录损失值
-        # logger.add_scalar('sds_loss', sds_loss, global_step=it)
-        # logger.add_scalar('smooth_sds_loss', smooth_sds_loss, global_step=it)
+        # 记录损失值
+        logger.add_scalar('sds_loss', sds_loss, global_step=it)
+        logger.add_scalar('smooth_sds_loss', smooth_sds_loss, global_step=it)
 
         # 仅在满足条件时保存 9 宫格图像
         if it % cfg.log_interval_im == 0:
@@ -907,8 +907,8 @@ def loop(cfg):
         # print("gt_jacobians.grad_backward:", gt_jacobians.grad)
         optimizer.step() #更新优化器的参数
         # t_loop.set_description(f'CLIP Loss = {clip_loss.item()}, SDS Loss = {l_guidance.item()},Total Loss = {total_loss.item()}')
-        # print(f"CLIP Loss: {clip_loss}, SDS Loss: {cfg.sds_weight * l_guidance}, Jacobian Loss: {r_loss},L2 Loss: {l2_loss}, Consistency Loss: {consistency_loss}, Total Loss = {total_loss}")
-        print(f"CLIP Loss: {clip_loss}, Jacobian Loss: {r_loss} Total Loss = {total_loss}")
+        print(f"CLIP Loss: {clip_loss}, Jacobian Loss: {r_loss},L2 Loss: {l2_loss}, Consistency Loss: {consistency_loss}, Total Loss = {total_loss}")
+        # print(f"CLIP Loss: {clip_loss}, Jacobian Loss: {r_loss} Total Loss = {total_loss}")
         # t_loop.set_description(f'CLIP Loss = {clip_loss.item()},Total Loss = {total_loss.item()}')
         # breakpoint()
         # 在每个epoch结束时清理缓存
