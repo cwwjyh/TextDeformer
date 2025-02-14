@@ -115,5 +115,47 @@
 
 # CUDA_VISIBLE_DEVICES=1 python main.py --config ./config/pig2dog_mv_ref_1000epo_l2_20.yml
 # CUDA_VISIBLE_DEVICES=1 python main.py --config ./config/donkey2deer_mv_ref_1000epo_l2_15.yml  #
-CUDA_VISIBLE_DEVICES=0 python main.py --config ./config/donkey2deer_mv_ref_1000epo_l2_20.yml  #
-CUDA_VISIBLE_DEVICES=0 python main.py --config ./config/pig2cow_mv_ref_1000epo_l2_20.yml 
+# CUDA_VISIBLE_DEVICES=0 python main.py --config ./config/donkey2deer_mv_ref_1000epo_l2_20.yml  #
+# CUDA_VISIBLE_DEVICES=0 python main.py --config ./config/pig2cow_mv_ref_1000epo_l2_20.yml 
+
+#利用objaverse渲染的9个视角作为gt，使用l2 loss
+#camera 没有与gt camera对齐
+CUDA_VISIBLE_DEVICES=0 python main.py --config ./config/pig2pig_gt_mv_ref_1000epo_l2_10_bs25.yml
+CUDA_VISIBLE_DEVICES=0 python main.py --config ./config/pig2pig_gt_mv_ref_1000epo_l2_15_bs25.yml
+CUDA_VISIBLE_DEVICES=0 python main.py --config ./config/pig2pig_gt_mv_ref_1000epo_l2_20_bs25.yml
+CUDA_VISIBLE_DEVICES=0 python main.py --config ./config/pig2pig_gt_mv_ref_2000epo_l2_10_bs25.yml
+CUDA_VISIBLE_DEVICES=0 python main.py --config ./config/pig2pig_gt_mv_ref_2000epo_l2_15_bs25.yml
+CUDA_VISIBLE_DEVICES=0 python main.py --config ./config/pig2pig_gt_mv_ref_2000epo_l2_20_bs25.yml
+
+
+
+
+# CUDA_VISIBLE_DEVICES=0 python main.py --config ./config/donkey2donkey_gt_mv_ref_1000epo_l2_10_25bs.yml
+CUDA_VISIBLE_DEVICES=0 python main.py --config ./config/donkey2donkey_gt_mv_ref_1000epo_l2_15_25bs.yml
+CUDA_VISIBLE_DEVICES=0 python main.py --config ./config/donkey2donkey_gt_mv_ref_1000epo_l2_20_25bs.yml
+CUDA_VISIBLE_DEVICES=0 python main.py --config ./config/donkey2donkey_gt_mv_ref_1000epo_l2_25_25bs.yml
+CUDA_VISIBLE_DEVICES=0 python main.py --config ./config/donkey2donkey_gt_mv_ref_2000epo_l2_10_25bs.yml
+CUDA_VISIBLE_DEVICES=0 python main.py --config ./config/donkey2donkey_gt_mv_ref_2000epo_l2_15_25bs.yml
+CUDA_VISIBLE_DEVICES=0 python main.py --config ./config/donkey2donkey_gt_mv_ref_2000epo_l2_20_25bs.yml
+
+
+CUDA_VISIBLE_DEVICES=0 python main.py --config ./config/donkey2dog_gt_mv_ref_1000epo_l2_10_25bs.yml
+CUDA_VISIBLE_DEVICES=0 python main.py --config ./config/donkey2dog_gt_mv_ref_1000epo_l2_15_25bs.yml
+CUDA_VISIBLE_DEVICES=0 python main.py --config ./config/donkey2dog_gt_mv_ref_1000epo_l2_20_25bs.yml
+CUDA_VISIBLE_DEVICES=0 python main.py --config ./config/donkey2dog_gt_mv_ref_2000epo_l2_10_25bs.yml
+
+
+#camera 与gt camera对齐
+CUDA_VISIBLE_DEVICES=0 python main.py --config ./config/pig2pig_gt_mv_ref_1000epo_l2_10_bs25_re.yml
+CUDA_VISIBLE_DEVICES=0 python main.py --config ./config/pig2pig_gt_mv_ref_1000epo_l2_15_bs25_re.yml
+CUDA_VISIBLE_DEVICES=0 python main.py --config ./config/pig2pig_gt_mv_ref_1000epo_l2_20_bs25_re.yml
+CUDA_VISIBLE_DEVICES=0 python main.py --config ./config/pig2pig_gt_mv_ref_2000epo_l2_10_bs25_re.yml
+CUDA_VISIBLE_DEVICES=0 python main.py --config ./config/pig2pig_gt_mv_ref_2000epo_l2_15_bs25_re.yml
+CUDA_VISIBLE_DEVICES=0 python main.py --config ./config/pig2pig_gt_mv_ref_2000epo_l2_20_bs25_re.yml
+
+
+#增加spot case
+CUDA_VISIBLE_DEVICES=0 python main.py --config ./config/spot2cow_gt_mv_ref_1000epo_l2_10_25bs.yml
+
+
+./gui.sh --listen 127.0.0.1 --server_port 7860 --share --headless 

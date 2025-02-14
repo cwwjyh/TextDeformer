@@ -1,3 +1,4 @@
+#camera_mv_l2_flux.py
 import glm
 import torch
 import random
@@ -223,7 +224,6 @@ class CameraBatch(torch.utils.data.Dataset):
         return self.batch_size
         
     def __getitem__(self, index):
-        #normal case setting
 
             # Define fixed camera poses for 9 different views
         if index == 0:
@@ -242,82 +242,15 @@ class CameraBatch(torch.utils.data.Dataset):
             # Left
             azim = np.radians(90)
             elev = np.radians(0)
-        elif index == 4:
-            # Front-Right
-            azim = np.radians(-45)
-            elev = np.radians(0)
-        elif index == 5:
-            # Front-Left
-            azim = np.radians(45)
-            elev = np.radians(0)
-        elif index == 6:
-            # Back-Right
-            azim = np.radians(-135)
-            elev = np.radians(0)
-        elif index == 7:
-            # Back-Left
-            azim = np.radians(135)
-            elev = np.radians(0)
-        elif index == 8:
-            # # Top donkey
-            azim = np.radians(0)
-            elev = np.radians(90)
-             # Top donkey
-            # azim = np.radians(180)
-            # elev = np.radians(90)
         else:
             # Default to front view if index is out of range
             elev = np.radians( np.random.beta( self.elev_alpha, self.elev_beta ) * self.elev_max )
             azim = np.radians( np.random.uniform( self.azim_min, self.azim_max+1.0 ) )
 
-        # #pig camera setting
-        #       # Define fixed camera poses for 9 different views
-        # if index == 0:
-        #     # Front
-        #     azim = np.radians(0)
-        #     elev = np.radians(0)
-        # elif index == 1:
-        #     # Back
-        #     azim = np.radians(180)
-        #     elev = np.radians(0)
-        # elif index == 3:
-        #     # Right
-        #     azim = np.radians(-90)
-        #     elev = np.radians(0)
-        # elif index == 2:
-        #     # Left
-        #     azim = np.radians(90)
-        #     elev = np.radians(0)
-        # elif index == 5:
-        #     # Front-Right
-        #     azim = np.radians(-45)
-        #     elev = np.radians(0)
-        # elif index == 4:
-        #     # Front-Left
-        #     azim = np.radians(45)
-        #     elev = np.radians(0)
-        # elif index == 7:
-        #     # Back-Right
-        #     azim = np.radians(-135)
-        #     elev = np.radians(0)
-        # elif index == 6:
-        #     # Back-Left
-        #     azim = np.radians(135)
-        #     elev = np.radians(0)
-        # elif index == 8:
-        #     # Top
-        #     azim = np.radians(0)
-        #     elev = np.radians(90)
-        # else:
-        #     # Default to front view if index is out of range
-        #     elev = np.radians( np.random.beta( self.elev_alpha, self.elev_beta ) * self.elev_max )
-        #     azim = np.radians( np.random.uniform( self.azim_min, self.azim_max+1.0 ) )
-
-
 
         # dist = np.random.uniform( self.dist_min, self.dist_max )
         # fov = np.random.uniform( self.fov_min, self.fov_max )
-        if index > 8:
+        if index > 3:
             # breakpoint()
             dist = np.random.uniform( self.dist_min, self.dist_max )
             fov = np.random.uniform( self.fov_min, self.fov_max )
@@ -331,7 +264,7 @@ class CameraBatch(torch.utils.data.Dataset):
         cam_y = dist * np.sin(elev)
         cam_x = dist * np.cos(elev) * np.cos(azim)
         
-        if index>8:
+        if index>3:
             # Random offset
             limit  = self.dist_min // 2
             rand_x = np.random.uniform( -limit, limit )
@@ -365,13 +298,13 @@ class CameraBatch(torch.utils.data.Dataset):
         #     lightpos = campos*dist
 
                 
-        if index > 8:
+        if index > 3:
             # lightpos = cosine_sample(campos) * dist
             lightpos = torch.from_numpy(cosine_sample(campos)).float() * dist
         else:
             lightpos = torch.from_numpy(campos * dist).float()  # 确保 lightpos 是 torch.Tensor
 
-        if index>8:
+        if index>3:
             # breakpoint()
             bkgs = get_random_bg(self.res, self.res, self.rand_solid).squeeze(0)
         else:

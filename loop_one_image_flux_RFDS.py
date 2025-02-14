@@ -1,5 +1,13 @@
 #虚拟环境kohya_new1
-#loop_mv_imag_flux_bs=16.py
+#loop_one_image_flux.py
+"""
+1. vae_scale_factor 是否需要调节？
+2. 噪声调度器（noise_scheduler）是否正确初始化? 已修正，与fintune flux用的noise_scheduler
+3. cfg.flux_weight设置是否合理
+4. pipe.fuse_lora(lora_scale=0.5)中的lora_scale是非常关键的参数，可以调节
+5. 仿照RFDS_sd3.py的noise预测进行修改这里的flux loss
+6. 文件命名：loop_one_image_flux_RFDS.py
+"""
 import clip
 import kornia
 import os
@@ -83,11 +91,12 @@ lora_name = "mesh_image_hippopotamus_no_pose-step00003000.safetensors"
 pipe = FluxPipeline.from_pretrained(pipe_id, torch_dtype=torch.bfloat16, cache_dir=cache_dir)
 print("Loading Lora weights")
 pipe.load_lora_weights(lora_weight, weight_name=lora_name)
-pipe.fuse_lora(lora_scale=1.0) #权重要调
+pipe.fuse_lora(lora_scale=1.0) #这个可以调节
 pipe.to("cuda")
+print("loaded lora weights end")
 
 
-
+# 定义获取噪声调度器的函数
 #调用flux_train_network.py,而不是train_network.py
 def get_noise_scheduler(device: torch.device):
     noise_scheduler = sd3_train_utils.FlowMatchEulerDiscreteScheduler(num_train_timesteps=1000, shift=3.0)
@@ -122,11 +131,14 @@ def get_noise_pred_and_target(
         # Sample noise that we'll add to the latents
         noise = torch.randn_like(latents) #torch.Size([1, 16, 28, 28])
         bsz = latents.shape[0] #bsz=1
-
-        # get noisy model input and timesteps
+        # breakpoint()
+        # get noisy model input and timesteps（pdb查看跳到哪里去了）此处的输出与RFDS_sd3.py的输出是一样的
         noisy_model_input, timesteps, sigmas = flux_train_utils.get_noisy_model_input_and_timesteps(
             args, noise_scheduler, latents, noise, accelerator.device, weight_dtype
         )
+        #below two lines follow sds loss（因为flux不要CFG，所以这里去掉）
+        # noisy_model_input = torch.cat([noisy_model_input] * 2)
+        # timesteps = torch.cat([timesteps] * 2)
 
         # pack latents and get img_ids
         packed_noisy_model_input = flux_utils.pack_latents(noisy_model_input)  # b, c, h*2, w*2 -> b, h*w, c*4
@@ -137,15 +149,6 @@ def get_noise_pred_and_target(
         # ensure guidance_scale in args is float
         guidance_vec = torch.full((bsz,), float(args.guidance_scale), device=accelerator.device)
 
-        # # ensure the hidden state will require grad
-        # if args.gradient_checkpointing:
-        #     noisy_model_input.requires_grad_(True)
-        #     for t in text_encoder_conds:
-        #         if t is not None and t.dtype.is_floating_point:
-        #             t.requires_grad_(True)
-        #     img_ids.requires_grad_(True)
-        #     guidance_vec.requires_grad_(True)
-
         # Predict the noise residual
         l_pooled, t5_out, txt_ids, t5_attn_mask = text_encoder_conds
         if not args.apply_t5_attn_mask: #这里打开了
@@ -154,7 +157,7 @@ def get_noise_pred_and_target(
         def call_dit(img, img_ids, t5_out, txt_ids, l_pooled, timesteps, guidance_vec, t5_attn_mask):
             # if not args.split_mode:
             # normal forward
-            # breakpoint()
+            # breakpoint() #想看unet的结构是什么？
             with accelerator.autocast():
                 # YiYi notes: divide it by 1000 for now because we scale it by 1000 in the transformer model (we should not keep it but I want to keep the inputs same for the model for testing)
                 model_pred = unet(  #jump flux_model.py Flux,class DoubleStreamBlock的forward()
@@ -187,42 +190,21 @@ def get_noise_pred_and_target(
         # # apply model prediction type
         model_pred, weighting = flux_train_utils.apply_model_prediction_type(args, model_pred, noisy_model_input, sigmas)
 
+
+        # #below three lines follow sds loss perform guidance (high scale from paper!)
+        # guidance_scale = 100
+        # noise_pred_text, noise_pred_null = model_pred.chunk(2)
+        # noise_pred = noise_pred_null + guidance_scale * (noise_pred_text - noise_pred_null)
+
+        u = torch.normal(mean=0, std=1, size=(bsz,), device=accelerator.device)
+        weighting = torch.nn.functional.sigmoid(u)
+        # breakpoint()
+
         # flow matching loss: this is different from SD3
-        target = noise - latents
+        # target = noise - latents
 
-        # # differential output preservation
-        # if "custom_attributes" in batch:
-        #     diff_output_pr_indices = []
-        #     for i, custom_attributes in enumerate(batch["custom_attributes"]):
-        #         if "diff_output_preservation" in custom_attributes and custom_attributes["diff_output_preservation"]:
-        #             diff_output_pr_indices.append(i)
-
-        #     if len(diff_output_pr_indices) > 0:
-        #         network.set_multiplier(0.0)
-        #         unet.prepare_block_swap_before_forward()
-        #         with torch.no_grad():
-        #             model_pred_prior = call_dit(
-        #                 img=packed_noisy_model_input[diff_output_pr_indices],
-        #                 img_ids=img_ids[diff_output_pr_indices],
-        #                 t5_out=t5_out[diff_output_pr_indices],
-        #                 txt_ids=txt_ids[diff_output_pr_indices],
-        #                 l_pooled=l_pooled[diff_output_pr_indices],
-        #                 timesteps=timesteps[diff_output_pr_indices],
-        #                 guidance_vec=guidance_vec[diff_output_pr_indices] if guidance_vec is not None else None,
-        #                 t5_attn_mask=t5_attn_mask[diff_output_pr_indices] if t5_attn_mask is not None else None,
-        #             )
-        #         network.set_multiplier(1.0)  # may be overwritten by "network_multipliers" in the next step
-
-        #         model_pred_prior = flux_utils.unpack_latents(model_pred_prior, packed_latent_height, packed_latent_width)
-        #         model_pred_prior, _ = flux_train_utils.apply_model_prediction_type(
-        #             args,
-        #             model_pred_prior,
-        #             noisy_model_input[diff_output_pr_indices],
-        #             sigmas[diff_output_pr_indices] if sigmas is not None else None,
-        #         )
-        #         target[diff_output_pr_indices] = model_pred_prior.to(target.dtype)
-
-        return model_pred, target, timesteps, weighting
+        return model_pred, noise, sigmas, weighting  #output：donkey2horse_flux_one_image_5000_fix_hyp_bs1_test2 此处没有用CFG
+        # return noise_pred, noise, sigmas, weighting  #使用CFG，output：donkey2horse_flux_one_image_5000_fix_hyp_bs1_test2_modify但是效果没有不使用CFG效果好，因为flux本身没有使用CFG
 
 
 #摘自flux_train_network.py
@@ -314,15 +296,8 @@ def encode_prompt_with_pipe(cfg, pipe, prompt, accelerator, text_encoders):
 
     # 创建新的字典
     input_ids = [input_ids_1['input_ids'],input_ids_2['input_ids'], input_ids_2['attention_mask']]
-    
-    # with torch.no_grad():
-    # breakpoint()
-    tokenize_strategy = get_tokenize_strategy(cfg) #此句耗时30s左右
-    # encoded_text_encoder_conds = text_encoding_strategy.encode_tokens( #runing
-    #                             tokenize_strategy,
-    #                             get_models_for_text_encoding(args, accelerator, text_encoders),
-    #                             input,
-    #                         )
+
+    tokenize_strategy = get_tokenize_strategy(cfg) 
     # apply_t5_attn_mask = None
     # breakpoint()
     encoded_text_encoder_conds = strategy_flux.FluxTextEncodingStrategy.encode_tokens( #runing
@@ -331,13 +306,37 @@ def encode_prompt_with_pipe(cfg, pipe, prompt, accelerator, text_encoders):
                                 input_ids,
                             )
     text_encoder_conds = encoded_text_encoder_conds
-    # # 使用 pipe 的 text_encoder 对编码后的输入进行处理
-    # with torch.no_grad():
-    #     outputs = pipe.text_encoder(**inputs)
-
-    # # 获取最后一层的隐藏状态作为文本嵌入
-    # text_embedding = outputs.last_hidden_state
     return text_encoder_conds
+
+# class SpecifyGradient(torch.autograd.Function):
+#     # @staticmethod
+#     # @custom_fwd
+#     def forward(ctx, input_tensor, gt_grad):
+#         ctx.save_for_backward(gt_grad) #ctx.requireds_grad=input_tensor=True; gt_grad=False
+#         # we return a dummy value 1, which will be scaled by amp's scaler so we get the scale in backward.
+#         return torch.ones([1], device=input_tensor.device, dtype=input_tensor.dtype)
+
+#     # @staticmethod
+#     # @custom_bwd
+#     def backward(ctx, grad_scale):
+#         gt_grad, = ctx.saved_tensors
+#         gt_grad = gt_grad * grad_scale #gt_grad.shape=torch.Size([1, 16, 28, 28])
+#         # breakpoint()
+#         return gt_grad, None
+
+def compute_loss_weighting_for_sd3(weighting_scheme: str, sigmas=None):
+    """
+    Computes loss weighting scheme for SD3 training.
+    """
+    if weighting_scheme == "sigma_sort":
+        weighting = (sigmas**-2.0).float()
+    elif weighting_scheme == "cosmap":
+        bot = 1 - 2 * sigmas + 2 * sigmas**2
+        weighting = 2 / (math.pi * bot)
+    else:
+        weighting = torch.ones_like(sigmas)
+    return weighting
+
 
 def loop(cfg):
     output_path = pathlib.Path(cfg['output_path'])
@@ -468,35 +467,37 @@ def loop(cfg):
 
      #cww add
     # 在循环开始之前，加载参考图像
-    reference_image_path = cfg.reference_image_path  # 从配置中获取参考图像路径
-    reference_image = Image.open(reference_image_path).convert('RGB')  # 加载图像并转换为RGB格式
-    reference_image = torchvision.transforms.ToTensor()(reference_image).unsqueeze(0).to(device)  # 转换为张量并添加批次维度
-    reference_image = resize(reference_image, out_shape=(224, 224), interp_method=resize_method)  # 确保参考图像的大小与训练渲染图像一致
-    reference_image = reference_image.repeat(10, 1, 1, 1)  # 在第0个维度上重复25次
-    print("reference_image.shap:", reference_image.shape) #(1,3,224,224)
+    # reference_image_path = cfg.reference_image_path  # 从配置中获取参考图像路径
+    # reference_image = Image.open(reference_image_path).convert('RGB')  # 加载图像并转换为RGB格式
+    # reference_image = torchvision.transforms.ToTensor()(reference_image).unsqueeze(0).to(device)  # 转换为张量并添加批次维度
+    # reference_image = resize(reference_image, out_shape=(224, 224), interp_method=resize_method)  # 确保参考图像的大小与训练渲染图像一致
+    # reference_image = reference_image.repeat(10, 1, 1, 1)  # 在第0个维度上重复25次
+    # print("reference_image.shap:", reference_image.shape) #(1,3,224,224)
 
     #cww add flux
     accelerator = train_util.prepare_accelerator(cfg)
-    weight_dtype = torch.bfloat16 #weight_dtype = torchs.bfloat16
+    weight_dtype = torch.bfloat16 #weight_dtype = torch.bfloat16
     text_encoders, unet= load_target_model(cfg, weight_dtype) #加载模型，获得unet
     # weight_dtype, save_dtype = torch.bfloat16 #weight_dtype = torch.bfloat16
     vae_dtype = weight_dtype
     unet_weight_dtype = te_weight_dtype = weight_dtype
     unet.requires_grad_(False)
     unet.to(accelerator.device,dtype=unet_weight_dtype) # move to device because unet is not prepared by accelerator #此处报oom
-    unet.eval
+    unet.eval()
     
     vae_scale_factor = 0.18215
 
     #  在你的代码中调用 get_noise_scheduler 函数
     # 定义噪声调度器
-    # breakpoint()
+    print("这里操作时间长吗？")
     noise_scheduler = get_noise_scheduler(accelerator.device)
     # 使用加载了 LoRA 权重的模型进行文本编码
-    # 禁用梯度计算可以减少内存使用，使用混合精度可以进一步加速计算，特别是在支持FP16的GPU上
+    # breakpoint()
+    print("noise_schieduler运行时间不长")
     with torch.set_grad_enabled(False), accelerator.autocast():
         text_encoder_conds = encode_prompt_with_pipe(cfg, pipe, cfg.target_prompt, accelerator,text_encoders) #这个要放在for循环之外
     # breakpoint()
+    print("text_encoder_conds运行的时间比较长？")
     # prepare network
     train_unet=False
     l2_loss = 0.0
@@ -622,7 +623,59 @@ def loop(cfg):
             num_layers=1,
             msaa=False,
             background=params_camera['bkgs']
-        ).permute(0, 3, 1, 2)
+        ).permute(0, 3, 1, 2) #train_render.shape=torch.Size([1, 3, 512, 512])
+        # breakpoint()
+        print("train_render.shape= ", train_render.shape)
+        sds_loss = torch.tensor(0.0, device=device)  # 初始化为
+        train_render_bf16 = train_render.to(torch.bfloat16)
+        latents = pipe.vae.encode(train_render_bf16).latent_dist.sample() # torch.Size([1, 16, 28, 28])
+        latents = shift_scale_latents(latents,vae_scale_factor)
+        print("latents.shape: ", latents.shape)
+        # breakpoint()
+        with torch.no_grad():
+            # breakpoint()       
+            # sample noise, call unet, get target
+            # unet.to(accelerator.device,dtype=unet_weight_dtype) # move to device because unet is not prepared by accelerator #此处报oom
+            noise_pred, target, sigmas, weighting = get_noise_pred_and_target(
+                cfg,# 训练参数配置
+                accelerator, # 加速器对象
+                noise_scheduler,# 噪声调度器
+                latents,  # 潜在空间表示 #torch.Size([1, 16, 28, 28])
+                text_encoder_conds, # 文本编码器条件
+                unet,  # UNet模型
+                weight_dtype, #权重数据类型 torch.float16 or torch.bfloat16
+                train_unet, # 是否训练UNet
+            )
+            if noise_pred is None:
+                raise ValueError("noise_pred is not assigned!")
+        # # 确保 noise_pred 和 target 需要梯度
+        # # noise_pred.requires_grad_(True)
+        # # target.requires_grad_(True)
+        # # breakpoint()
+        # # sds_loss = torch.nn.functional.mse_loss(noise_pred, target, reduction='none').mean() #noise_pred.shape=target.shap=torch.Size([1, 16, 28, 28])
+        # weighting_scheme = "sigma_sort"  # 或 "cosmap"
+        # # 计算 weighting
+        # weighting = compute_loss_weighting_for_sd3(weighting_scheme, sigmas) #{weighting.dtype}=torch.float32
+        # weighting = weighting.to(torch.bfloat16)#{weighting.dtype}=torch.float16
+        # print("weighting = ",weighting)
+        # grad = weighting*(noise_pred - target) 
+        # # grad = (noise_pred - target) 
+        # grad = torch.nan_to_num(grad) #防止noise为none，极大值，极小值导致训练崩掉
+        # # breakpoint()
+        # #这样手动指定梯度，可以梯度回传的时候有梯度了
+        # # sds_loss = SpecifyGradient.apply(latents, grad) #sds_loss=tensor([1.], device='cuda:0', grad_fn=<SpecifyGradientBackward>) loss.requires_grad=True  original_sds loss
+        # targets = (latents - grad).detach()
+        # sds_loss = 0.5 * torch.nn.functional.mse_loss(latents, targets, reduction='sum') / latents.shape[0] #tensor(5100.5249, device='cuda:0', grad_fn=<DivBackward0>)  {sds_loss.dtype}=float32
+        # logger.add_scalar('sds_loss', sds_loss, global_step=it)
+        # print("sds_loss.requires_grad= ",sds_loss.requires_grad) # True
+        # breakpoint()
+
+        #####################modify follow sd3 flowmatching
+        grad = torch.nan_to_num(noise_pred)
+        target1 = (grad).detach()
+        print("weighting = ",weighting) #weighting =  tensor([0.7608], device='cuda:0')
+        # breakpoint()
+        sds_loss = weighting * torch.nn.functional.mse_loss(target-latents, target1, reduction="mean") / latents.shape[0] #分母应该是多少？ latents.shape[0]=1
 
         train_render = resize(train_render, out_shape=(224, 224), interp_method=resize_method) #torch.Size([25, 3, 224, 224])
         
@@ -664,100 +717,26 @@ def loop(cfg):
         ).permute(0, 3, 1, 2)
         base_render = resize(base_render, out_shape=(224, 224), interp_method=resize_method)
         
-        # if it % cfg.log_interval_im == 0:
-        #     log_idx = torch.randperm(cfg.batch_size)[:5]#随机选择5个索引以进行日志记录。
-        #     s_log = train_render[log_idx, :, :, :] #从训练渲染中提取选定的图像。
-        #     s_log = torchvision.utils.make_grid(s_log) #将选定的图像合并为一个网格。
-        #     ndarr = s_log.mul(255).add_(0.5).clamp_(0, 255).permute(1, 2, 0).to('cpu', torch.uint8).numpy()#将图像数据转换为NumPy数组，以便保存。
-        #     im = Image.fromarray(ndarr) #从NumPy数组创建图像对象。
-        #     im.save(str(output_path / 'images' / f'epoch_{it}.png')) #将图像保存到指定路径
-
-        #     obj.write_obj(
-        #         str(output_path / 'mesh_final'),
-        #         m.eval()
-        #     )
-        
-         #获取的9张图片拼成一张9宫格图像
         if it % cfg.log_interval_im == 0:
-            # 直接选择前9张图像
-            s_log = train_render[:9, :, :, :]  # 提取前9张图像
-            s_log = torchvision.utils.make_grid(s_log, nrow=3)  # 将9张图像合并成一个3x3的网格图像
-
-            ndarr = s_log.mul(255).add_(0.5).clamp_(0, 255).permute(1, 2, 0).to('cpu', torch.uint8).numpy()
-            im = Image.fromarray(ndarr)
-            im.save(str(output_path / 'images' / f'epoch_{it}.png'))
+            log_idx = torch.randperm(cfg.batch_size)[:5]#随机选择5个索引以进行日志记录。
+            s_log = train_render[log_idx, :, :, :] #从训练渲染中提取选定的图像。
+            s_log = torchvision.utils.make_grid(s_log) #将选定的图像合并为一个网格。
+            ndarr = s_log.mul(255).add_(0.5).clamp_(0, 255).permute(1, 2, 0).to('cpu', torch.uint8).numpy()#将图像数据转换为NumPy数组，以便保存。
+            im = Image.fromarray(ndarr) #从NumPy数组创建图像对象。
+            im.save(str(output_path / 'images' / f'epoch_{it}.png')) #将图像保存到指定路径
 
             obj.write_obj(
                 str(output_path / 'mesh_final'),
                 m.eval()
             )
-
+        
         optimizer.zero_grad()
         # breakpoint()
         #目的：想渲染正视角的时候，进行l2 loss，其他视角则进行原有的loss
+
         # 1. 获取索引并创建mask
-        index = params_camera['index']
-        mask = torch.eq(index % 2, 0)  # mask为True的位置是需要多计算loss的样本
-
-        sds_loss = torch.tensor(0.0, device=device)  # 初始化为一个张量
-        for image in train_render[mask]:
-            # 生成图像并转换为 latent 空间
-            # breakpoint()
-            with torch.no_grad():
-                # 将输入转换为与模型相同的数据类型(bfloat16)
-                # train_render_bf16 = train_render[mask].to(torch.bfloat16).unsqueeze(0)  # 增加批次维度
-                train_render_bf16 = image.to(torch.bfloat16).unsqueeze(0) #shape:torch.size([1, 3, 224, 224])
-                latents = pipe.vae.encode(train_render_bf16).latent_dist.sample() # torch.Size([1, 16, 28, 28])
-                latents = shift_scale_latents(latents,vae_scale_factor)
-                # print("latents.shape: ", latents.shape)
-
-                # breakpoint()       
-                # sample noise, call unet, get target
-                # unet.to(accelerator.device,dtype=unet_weight_dtype) # move to device because unet is not prepared by accelerator #此处报oom
-                noise_pred, target, timesteps, weighting = get_noise_pred_and_target(
-                    cfg,# 训练参数配置
-                    accelerator, # 加速器对象
-                    noise_scheduler,# 噪声调度器
-                    latents,  # 潜在空间表示 #torch.Size([1, 16, 28, 28])
-                    text_encoder_conds, # 文本编码器条件
-                    unet,  # UNet模型
-                    weight_dtype, #权重数据类型 torch.float16 or torch.bfloat16
-                    train_unet, # 是否训练UNet
-                )
-                if noise_pred is None:
-                    raise ValueError("noise_pred is not assigned!")
-            # breakpoint()
-            batch_sds_loss = torch.nn.functional.mse_loss(noise_pred, target, reduction='none') #noise_pred.shape=target.shap=torch.Size([1, 16, 28, 28])
-            batch_sds_loss = batch_sds_loss.mean([1,2,3])
-            sds_loss += batch_sds_loss.item()  # 累积损失
-            print("sds_loss.grad = ", sds_loss.grad)
-        sds_loss /= len(train_render[mask])  # 计算平均损失
-        # l2_loss = torch.nn.functional.mse_loss(train_render[mask], reference_image[mask]) #train_render[mask].shape=reference_image[mask].shape=torch.Size([6, 3, 224, 224])
-        #保存被mask选中的图像
-        if it % cfg.log_interval_im == 0:  # 使用与其他图像相同的保存间隔
-            # 创建保存目录
-            comparison_save_dir = output_path / 'images' / 'comparison'
-            os.makedirs(comparison_save_dir, exist_ok=True)
-            
-            # 获取被mask选中的图像
-            masked_reference = reference_image[mask]
-            masked_render = train_render[mask]
-            
-            # 如果有被选中的图像
-            if masked_reference.size(0) > 0:
-                # 将参考图像和渲染图像拼接在一起
-                comparison = torch.cat([masked_reference, masked_render], dim=0)
-                comparison_grid = torchvision.utils.make_grid(
-                    comparison, 
-                    nrow=masked_reference.size(0),  # 每行显示所有参考图像
-                    padding=2
-                )
-                
-                # 转换并保存图像
-                ndarr = comparison_grid.mul(255).add_(0.5).clamp_(0, 255).permute(1, 2, 0).to('cpu', torch.uint8).numpy()
-                im = Image.fromarray(ndarr)
-                im.save(str(comparison_save_dir / f'comparison_epoch_{it}.png'))
-        
+        # index = params_camera['index']
+        # mask = torch.eq(index % 2, 0)  # mask为True的位置是需要多计算loss的样本
                 
         # breakpoint()
         # CLIP similarity losses
@@ -775,7 +754,6 @@ def loop(cfg):
 
         #计算当前图像嵌入与目标文本嵌入之间的余弦相似度损失。
         clip_loss = cosine_avg(orig_image_embeds, target_text_embeds)  #对应公式（2）
-        print("clip_loss.grad = ", clip_loss.grad)
         #计算差异图像嵌入与目标文本差异嵌入之间的余弦相似度损失。
         delta_clip_loss = cosine_avg(delta_image_embeds, delta_text_embeds) #对应公式（3）
         logger.add_scalar('clip_loss', clip_loss, global_step=it)
@@ -821,16 +799,25 @@ def loop(cfg):
         cosines = (cosines * azim_d.unsqueeze(-1) * elev_d.unsqueeze(-1)).permute(2, 0, 1).triu(1)
         consistency_loss = cosines[cosines != 0].mean()
         logger.add_scalar('consistency_loss', consistency_loss, global_step=it)
-        # # breakpoint()
-        total_loss = cfg.clip_weight * clip_loss
+        # breakpoint()
+        #only sds_loss setting
+        # total_loss = sds_loss.mean() #有梯度了
+        # print(f"total_loss 数据类型: {total_loss.dtype}")
+
+        #sds_loss+clip相关loss的setting
+        sds_loss = sds_loss.mean()
+        total_loss = cfg.flux_weight * sds_loss + \
+            cfg.clip_weight * clip_loss + cfg.delta_clip_weight * delta_clip_loss + cfg.regularize_jacobians_weight * r_loss
+        # total_loss = cfg.clip_weight * clip_loss + cfg.delta_clip_weight * delta_clip_loss + \
+        #     cfg.regularize_jacobians_weight * r_loss
         # breakpoint()
         # total_loss = cfg.sds_weight * l_guidance + \
         #     cfg.clip_weight * clip_loss + cfg.delta_clip_weight * delta_clip_loss + \
         #     cfg.regularize_jacobians_weight * r_loss + cfg.l2_weight*l2_loss 
 
         # 确保 total_loss 是标量
-        # breakpoint()
-        # total_loss_scaler = total_loss.mean().item()  # 计算平均损失并转换为标量 #type(total_loss)=<class 'torch.Tensor'>, type(total_loss_scaler)=float
+        # # breakpoint()
+        # # total_loss_scaler = total_loss.mean().item()  # 计算平均损失并转换为标量 #type(total_loss)=<class 'torch.Tensor'>, type(total_loss_scaler)=float
         # logger.add_scalar('total_loss', total_loss_scaler, global_step=it)
         # if best_losses['total'] > total_loss_scaler: #如果当前损失优于之前的最佳损失，则更新最佳损失病保存当前网格
         #     best_losses['total'] = total_loss.detach()
@@ -855,9 +842,9 @@ def loop(cfg):
             )
         # breakpoint()
         # total_loss = total_loss.mean()
-        total_loss.backward(retain_graph=True) #执行反向传播，计算梯度 tensor 才可以求梯度
-        print("gt_jacobians.grad:", gt_jacobians.grad)
-
+        total_loss.backward() #执行反向传播，计算梯度 tensor 才可以求梯度
+        print("gt_jacobians.grad:", gt_jacobians.grad) #torch.Size([1, 20868, 3, 3])
+        # breakpoint()
         optimizer.step() #更新优化器的参数
         # t_loop.set_description(f'CLIP Loss = {clip_loss.item()}, SDS Loss = {l_guidance.item()},Total Loss = {total_loss.item()}')
         # print(f"CLIP Loss: {clip_loss}, SDS Loss: {cfg.sds_weight * l_guidance}, Jacobian Loss: {r_loss},L2 Loss: {l2_loss}, Consistency Loss: {consistency_loss}, Total Loss = {total_loss}")

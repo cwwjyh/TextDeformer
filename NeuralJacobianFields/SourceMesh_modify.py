@@ -10,6 +10,7 @@ import numpy as np
 import sys
 import random
 import time
+from IPython import embed
 class SourceMesh:
     '''
     datastructure for the source mesh to be mapped
@@ -41,7 +42,88 @@ class SourceMesh:
         return self.__source_global_translation_to_original
 
     def vertices_from_jacobians(self, d):
+        # # 打印雅可比矩阵的特征值
+        # # eigenvalues = np.linalg.eigvals(d.detach().cpu().numpy())
+        # eigenvalues, eigenvectors = np.linalg.eig(d.detach().cpu().numpy())
+        # print("Eigenvalues:", eigenvalues)
+
+        # # 检查特征值的实部是否为正
+        # real_eigenvalues = np.real(eigenvalues)
+        # print("Real Eigenvalues:", real_eigenvalues)
+
+        # if np.all(real_eigenvalues > 0):
+        #     print("All real eigenvalues are positive.")
+        # else:
+        #     print("Some real eigenvalues are not positive.")
+
+        #     #  # 添加正则化项
+        #     epsilon = 1e-2  # 选择一个小的正数
+        #     # d_np = d.detach().cpu().numpy()
+        #     # d_np = d_np.squeeze()
+        #     # print("d_np shape:", d_np.shape) #（729，3，3）
+        #     #调整负特征值
+        #     real_eigenvalues[real_eigenvalues < 0] = epsilon
+        #     print("real_eigenvalues shape:", real_eigenvalues.shape) #(1,792,3)
+        #     print("eigenvectors shape:", eigenvectors.shape) #(1,792,3,3)
+            
+        #     # # 确保 real_eigenvalues 是一维数组
+        #     # real_eigenvalues = real_eigenvalues.flatten()
+        #     # print("real_eigenvalues shape:", real_eigenvalues.shape)
+        #     embed()
+        #     print("np.diag(real_eigenvalues) shape:", np.diag(real_eigenvalues).shape)
+        #     print("np.linalg.inv(eigenvectors) shape:", np.linalg.inv(eigenvectors).shape)
+
+        #     # 重构正定矩阵
+        #     d_np_pos_def = eigenvectors @ np.diag(real_eigenvalues) @ np.linalg.inv(eigenvectors)
+
+        #     # 将正定矩阵转换回 PyTorch 张量
+        #     d_pos_def = torch.tensor(d_np_pos_def, dtype=d.dtype, device=d.device)
+
+        #     # 打印正定化后的矩阵的特征值
+        #     eigenvalues_pos_def = np.linalg.eigvals(d_pos_def.cpu().numpy())
+        #     print("Eigenvalues after making positive definite:", eigenvalues_pos_def)
+
+        #     # # d_np += np.eye(d_np.shape[0]) * epsilon  # 在对角线上添加 epsilon
+            
+        #     # # print("d_np shape:", d_np.shape)
+
+        #     # 确保 d_np 是二维数组
+        #     # if d_np.ndim > 2:
+        #     #     d_np = d_np.reshape(d_np.shape[0], -1)  # 将其调整为二维数组 
+        #     #     print("Reshaped d_np shape:", d_np.shape) #（729，729）
+
+        #     # d_np += np.eye(d_np.shape[1]) * epsilon  # 在对角线上添加 epsilon
+        #     # 使用 SVD 处理不正定矩阵
+        #     # U, S, Vt = np.linalg.svd(d_np, full_matrices=False)
+        #     # print("S shape:", S.shape)
+        #     # S = S.flatten()  # 确保 S 是一维数组
+
+        #     # # 打印维度信息
+        #     # print("U shape:", U.shape)
+        #     # print("S shape:", S.shape)
+        #     # print("Vt shape:", Vt.shape)
+
+
+        #      # 确保 S 的长度与 U 的列数和 Vt 的行数相同
+        #     # if len(S) != U.shape[1] or len(S) != Vt.shape[0]:
+        #     #     raise ValueError("SVD output dimensions do not match.")
+        #     # S[S < 0] = 0  # 将负的奇异值设为零
+        #     # d_np = U @ np.diag(S) @ Vt  # 重构矩阵
+        #     # print("d_np shape:", d_np.shape)
+
+
+        #     # # 确保 d 的维度为 (1, 792, 3, 3)
+        #     # # d_np = d_np.reshape(1, 792, 3, 3)  # 调整为四维
+
+        #     # d_np = d_np.reshape(1, 792, 3, 3)  # 调整为四维
+        #     # d = torch.tensor(d_np, device=d.device)
+        #     # print("Final d shape:", d.shape)
+
+        # # 打印 d 的形状以进行调试
+        # print("Final d shape:", eigenvalues_pos_def)
+        # embed()
         return self.poisson.solve_poisson(d)
+        
 
     def jacobians_from_vertices(self, v):
         return self.poisson.jacobians_from_vertices(v)
@@ -145,4 +227,5 @@ class SourceMesh:
         # for key in self.__loaded_data.keys():
         #     self.__loaded_data[key].pin_memory()
         return self
+
 

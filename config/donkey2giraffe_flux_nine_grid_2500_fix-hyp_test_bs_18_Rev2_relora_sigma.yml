@@ -1,0 +1,149 @@
+output_path: ./outputs/donkey2giraffe_flux_nine_grid_2500_fix-hyp_test_bs_18_Rev2_relora_sigma
+gpu: 0
+seed: 99
+
+# CLIP-related
+text_prompt: a giraffe
+base_text_prompt: a donkey
+clip_model: ViT-B/32
+consistency_clip_model: ViT-B/32
+consistency_vit_stride: 8
+consistency_vit_layer: 11
+
+# Mesh
+# mesh: /data/caiweiwei/Open3D-main/data_mesh/objaverse_normalization_1 /32a399bfa6ad4de7b0328e92a389d732.obj #pig
+# mesh: /data/caiweiwei/Open3D-main/data_mesh/objaverse_normalize/41c1a302435f42ccb220fe48d491bb92.obj #cow
+# mesh: /data/caiweiwei/TextDeformer-main/meshes/bird.obj
+mesh: /data/caiweiwei/TextDeformer-main/meshes/donkey.obj
+retriangulate: 0
+reference_image_path: /data/caiweiwei/kohya_ss/outputs/mesh_image_donkey2horse/sample/mesh_image_donkey2horse_001000_00_20241230183602.png
+target_prompt: The nine-square grid of images shows different views of a giraffe. The mesh features an incredibly tall and slender body with a strikingly long neck. The giraffe's head is small in proportion to its body, with large, expressive eyes that are well - adapted for spotting threats in the savannah. Its ears are tall and pointed, constantly twitching to pick up sounds. The neck is the most prominent feature, stretching vertically for an extraordinary length, making it an iconic part of the giraffe's silhouette. The body is relatively compact but muscular, designed to support the animal's towering height. The legs are long and sturdy, with large hooves that provide stability. The tail is long and ends with a tuft of hair, which sways gently as the giraffe moves. The absence of texture and color in the mesh suggests that it is a basic 3D model, intended as a preliminary design for further refinement and artistic development. [PATCH 1] The front view of the 3D giraffe mesh, [PATCH 2] The back view of the 3D giraffe mesh, [PATCH 3] The right view of the 3D giraffe mesh, [PATCH 4] The left view of the 3D giraffe mesh, [PATCH 5] The front-right view of the 3D giraffe mesh, [PATCH 6] The front-left view of the 3D giraffe mesh, [PATCH 7] The back-right view of the 3D giraffe mesh, [PATCH 8] The back-left view of the 3D giraffe mesh, [PATCH 9] The top view of the 3D giraffe mesh.
+bsdf: diffuse
+
+# Hyper-parameters
+lr: 0.0025
+epochs: 2500
+clip_weight: 2.0
+sds_weight: 0  #cww add
+flux_weight: 1.0
+delta_clip_weight: 2.0
+regularize_jacobians_weight: 0.5
+l2_weight: 1.0
+consistency_loss_weight: 0.5
+consistency_elev_filter: 30
+consistency_azim_filter: 20
+batch_size: 18 #original=25
+apply_t5_attn_mask: false
+train_res: 512
+resize_method: cubic  
+lora_scale: 1.0 #cww add from apap
+clamp_val: 2.0  #cww add from apap
+cfg_scale: 100.0 #cww add from apap
+
+# Camera parameters
+fov_min: 30.0 # 视场角设置为 45 度
+fov_max: 90.0
+dist_min: 2.5
+dist_max: 3.5
+light_power: 5.0
+elev_alpha: 1.0
+elev_beta: 5.0 
+elev_max: 60.0
+azim_min: 0.0
+azim_max: 360.0
+aug_loc: 1  #1 打开相机位置的随机偏移
+aug_light: 1
+aug_bkg: 1 # 0禁用随机背景
+adapt_dist: 1 # 0禁用相机距离的自适应调整
+
+log_interval: 5
+log_interval_im: 150
+log_elev: 30.0
+log_fov: 60.0
+log_dist: 3.0
+log_res: 512
+log_light_power: 3.0
+
+#flux args
+LoRA_type: "Flux1"
+adaptive_noise_scale: 0.03 #liu,
+fp8_base: false
+vae: ""
+deepspeed: false
+logging_dir: None
+ae: /data/caiweiwei/ComfyUI/ae.safetensors
+blocks_to_swap: 0
+network_dim: 16
+network_alpha: 16
+network_args: [ "train_double_block_indices=all", "train_single_block_indices=all",]
+network_module: "networks.lora_flux"
+lowram: false, #liu
+v2: false  #liu
+cache_text_encoder_outputs: false
+max_grad_norm: 0.5
+v_parameterization: false #liu
+network_dropout: 0
+ip_noise_gamma: 0  #liu
+bucket_no_upscale: true
+bucket_reso_steps: 64
+cache_latents: true
+cache_latents_to_disk: true
+caption_dropout_every_n_epochs: 0
+caption_dropout_rate: 0
+caption_extension: ".txt"
+clip_skip: 1
+discrete_flow_shif: 3
+double_blocks_to_swap: 0
+dynamo_backend: "no"
+gradient_accumulation_steps: 1
+guidance_scale: 1
+huber_c: 0.1
+huber_schedule: "snr"
+keep_tokens: 0
+learning_rate: 0.0001
+learning_rate_te: 1e-5
+loss_type: "l2"
+disable_mmap_load_safetensors: false
+lr_scheduler: "cosine"
+lr_scheduler_args: []
+lr_scheduler_num_cycles: 1
+lr_scheduler_power: 1
+lr_warmup_steps: 0.1
+max_bucket_reso: 2048
+max_data_loader_n_workers: 0
+max_timestep: 1000  #liu
+min_timestep: 0  #liu
+max_token_length: 225
+max_train_steps: 8500
+mem_eff_attn: true
+min_bucket_reso: 256
+mixed_precision: "bf16"
+model_prediction_type: "raw"
+multires_noise_discount: 0.3 
+multires_noise_iterations: 0  #liu
+noise_offset: 0.02  # liu
+noise_offset_random_strength: false #liu
+noise_offset_type: "Original"
+optimizer_type: "AdamW8bit"
+clip_l: /data/caiweiwei/ComfyUI/clip_l.safetensors
+t5xxl: /data/caiweiwei/ComfyUI/t5xxl_fp16.safetensors
+output_name: "mesh_image_donkey2horse"
+persistent_data_loader_workers: 0
+pretrained_model_name_or_path: /data/caiweiwei/ComfyUI/flux1-dev.safetensors   
+prior_loss_weight: 1
+# resolution: "256,256"
+sample_every_n_steps: 500
+sample_prompts: /data/caiweiwei/TextDeformer-main/prompt.txt
+sample_sampler: "euler_a"
+save_every_n_epochs: 1
+save_model_as: "safetensors"
+save_precision: "fp16"
+seed: 12345
+single_blocks_to_swap: 0
+t5xxl_max_token_length: 512
+timestep_sampling: "sigma"
+# train_batch_size: 1
+train_blocks: "all"
+train_data_dir: "/data/caiweiwei/kohya_ss/data/mesh_image"
+wandb_run_name: "mesh_image_donkey2horse"
+xformers: true

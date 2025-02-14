@@ -223,59 +223,31 @@ class CameraBatch(torch.utils.data.Dataset):
         return self.batch_size
         
     def __getitem__(self, index):
+        # print(f"Current index: {index}")  # 添加调试信息
+        if index % 4 ==0:
+            #cww modify
+            # elev = 0 #俯仰角
+            # azim = 0 #方位角
+            # elev = 0
+            # azim = np.radians(90)  # 左视图，方位角90度
+            #donkey side view
+            elev = 0 
+            azim = np.radians(-90)  # 右视图，方位角-90度 donkey.obj朝向为右
 
-            # Define fixed camera poses for 9 different views
-        if index == 0:
-            # Front
-            azim = np.radians(0)
-            elev = np.radians(0)
-        elif index == 1:
-            # Back
-            azim = np.radians(180)
-            elev = np.radians(0)
-        elif index == 2:
-            # Right
-            azim = np.radians(-90)
-            elev = np.radians(0)
-        elif index == 3:
-            # Left
-            azim = np.radians(90)
-            elev = np.radians(0)
-        elif index == 4:
-            # Front-Right
-            azim = np.radians(-45)
-            elev = np.radians(0)
-        elif index == 5:
-            # Front-Left
-            azim = np.radians(45)
-            elev = np.radians(0)
-        elif index == 6:
-            # Back-Right
-            azim = np.radians(-135)
-            elev = np.radians(0)
-        elif index == 7:
-            # Back-Left
-            azim = np.radians(135)
-            elev = np.radians(0)
-        elif index == 8:
-            # Top
-            azim = np.radians(0)
-            elev = np.radians(90)
+            #spot side view
+            # azim = np.radians(180)
+            # elev = np.radians(0)
         else:
-            # Default to front view if index is out of range
+            #随机的camera pose
             elev = np.radians( np.random.beta( self.elev_alpha, self.elev_beta ) * self.elev_max )
             azim = np.radians( np.random.uniform( self.azim_min, self.azim_max+1.0 ) )
 
-
         # dist = np.random.uniform( self.dist_min, self.dist_max )
         # fov = np.random.uniform( self.fov_min, self.fov_max )
-        if index > 8:
-            # breakpoint()
-            dist = np.random.uniform( self.dist_min, self.dist_max )
-            fov = np.random.uniform( self.fov_min, self.fov_max )
-        else:    
-            dist = 3.0 #3.0
-            fov = 45.0 #45
+        #固定
+        dist = 3.0 #3.0
+        fov = 45.0 #45
+        
         proj_mtx = persp_proj(fov)
         
         # Generate random view
@@ -283,7 +255,8 @@ class CameraBatch(torch.utils.data.Dataset):
         cam_y = dist * np.sin(elev)
         cam_x = dist * np.cos(elev) * np.cos(azim)
         
-        if index>8:
+        if self.aug_loc:
+
             # Random offset
             limit  = self.dist_min // 2
             rand_x = np.random.uniform( -limit, limit )
@@ -294,48 +267,33 @@ class CameraBatch(torch.utils.data.Dataset):
         else:
         
             modl = glm.mat4()
-
-        # 视图矩阵   
+            
         view  = glm.lookAt(
             glm.vec3(cam_x, cam_y, cam_z),
             glm.vec3(self.look_at[0], self.look_at[1], self.look_at[2]),
             glm.vec3(self.up[0], self.up[1], self.up[2]),
         )
 
-        # 模型视图矩阵
         r_mv = view * modl
         r_mv = np.array(r_mv.to_list()).T
 
-        # 投影矩阵
         mvp     = np.matmul(proj_mtx, r_mv).astype(np.float32)
         campos  = np.linalg.inv(r_mv)[:3, 3]
 
-        # if index>8:
-        #     # lightpos = cosine_sample(campos)*dist
-        #     lightpos = torch.from_numpy(cosine_sample(campos)).float() * dist
-        # else:
-        #     lightpos = campos*dist
-
-                
-        if index > 8:
-            # lightpos = cosine_sample(campos) * dist
-            lightpos = torch.from_numpy(cosine_sample(campos)).float() * dist
+        if self.aug_light:
+            lightpos = cosine_sample(campos)*dist
         else:
-            lightpos = torch.from_numpy(campos * dist).float()  # 确保 lightpos 是 torch.Tensor
+            lightpos = campos*dist
 
-        if index>8:
-            # breakpoint()
+        if self.aug_bkg:
             bkgs = get_random_bg(self.res, self.res, self.rand_solid).squeeze(0)
         else:
             # bkgs = torch.ones(self.res, self.res, 3) #设置为白色背景
             bkgs = torch.zeros(self.res, self.res, 3)  # 设置为黑色背景
 
-
         return {
             'mvp': torch.from_numpy( mvp ).float(),
-            # 'lightpos': torch.from_numpy( lightpos ).float(),
-            # 'lightpos': lightpos.float(),  # 确保 lightpos 是 torch.Tensor
-            'lightpos': lightpos,  # 确保 lightpos 是 torch.Tensor
+            'lightpos': torch.from_numpy( lightpos ).float(),
             'campos': torch.from_numpy( campos ).float(),
             'bkgs': bkgs,
             'azim': torch.tensor(azim).float(),

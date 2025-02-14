@@ -456,6 +456,7 @@ def get_noisy_model_input_and_timesteps(
         #     logit_std=args.logit_std,
         #     mode_scale=args.mode_scale,
         # )
+        #runing this cww
         u = torch.rand(size=(bsz,), device="cpu")
         indices = (u * noise_scheduler.config.num_train_timesteps).long()
         timesteps = noise_scheduler.timesteps[indices].to(device=device)
