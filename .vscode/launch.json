@@ -16,6 +16,17 @@
             "justMyCode": false
         },
         {
+            "name": "gpt 4",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/gpt-4o.py",
+            "args": [
+                "--config=./config/donkey2camel_flux.yml",
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
             "name": "finetune flux",
             "type": "python",
             "request": "launch",

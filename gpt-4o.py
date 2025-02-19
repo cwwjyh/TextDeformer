@@ -3,6 +3,9 @@ import base64
 import json
 from mimetypes import guess_type
 import os
+import argparse
+import yaml
+import pathlib
 
 def convert_image_to_base64(image_path):
     # Guess the MIME type of the image based on the file extension
@@ -42,23 +45,10 @@ def send_multimodal_request(api_key, messages):
         print(f"Request error: {e}")
         return None
 
-def save_answers_to_file(answers, file_path):
-    # Save only the answers to a JSON file
-    with open(file_path, 'w') as file:
-        json.dump(answers, file, indent=4)
-
 # Example usage
 api_key = "ak-39d8efgh45i6jkl23mno78pqrs12tuv4k5"
-image_folder = "/data/caiweiwei/TextDeformer-main/images"
-# image_folder = '/data/caiweiwei/TextDeformer-original/mesh_images'
-# output_folder = "/data/caiweiwei/kohya_ss/data/textdeformer_images_json/"
-output_folder = "/data/caiweiwei/TextDeformer-main/images/textdeformer_json"
-
-# Ensure the output folder exists
-os.makedirs(output_folder, exist_ok=True)
 
 # List all image files in the folder
-image_files = [f for f in os.listdir(image_folder) if f.endswith(('.png'))]
 questions = [
     """Knowing that a horse has a similar appearance to the input image, describe the details of the horse's appearance using content in the following format, e.g., “The nine-grid image shows different views of a whale. The whale is characterized by a huge, elongated body and a distinct head. The whale's head is characterized by a large, curved mouth and a pair of eyes. The body is streamlined and tapers toward a broad, flat tail. The mesh exhibits a faceted, low polygon style that gives the whale a geometric and simplified appearance. The absence of texture and color in the mesh indicates that it is a basic 3D model that can be used as a basis for further design and development.""",
     """Knowing that Einstein's head has a similar appearance to the input image, describe the details of Einstein's appearance using content in the following format, e.g., “The nine-grid image shows different views of the whale. The whale is characterized by a huge, elongated body and a distinct head. The whale's head is characterized by a large, curved mouth and a pair of eyes. The body is streamlined and tapers toward a broad, flat tail. The mesh exhibits a faceted, low polygon style that gives the whale a geometric and simplified appearance. The absence of texture and color in the mesh indicates that it is a basic 3D model that can be used as a basis for further design and development.""",
@@ -66,12 +56,7 @@ questions = [
     """Knowing that Bust of Venus has a similar appearance to the input image, describe the details of Bust of Venus appearance using content in the following format, e.g., “The nine-grid image shows different views of the whale. The whale is characterized by a huge, elongated body and a distinct head. The whale's head is characterized by a large, curved mouth and a pair of eyes. The body is streamlined and tapers toward a broad, flat tail. The mesh exhibits a faceted, low polygon style that gives the whale a geometric and simplified appearance. The absence of texture and color in the mesh indicates that it is a basic 3D model that can be used as a basis for further design and development."""
 ]
 
-# List to store answers for all images
-all_answers = []
-
-# Process each image
-for image_file in image_files:
-    image_path = os.path.join(image_folder, image_file)
+def query_gpt(file_name, image_path):
     image_url = convert_image_to_base64(image_path)
     
     # Initialize the conversation with the image and the first question
@@ -112,7 +97,6 @@ for image_file in image_files:
         
         response = send_multimodal_request(api_key, messages)
         if response is not None:
-            print(f"Response to question {j+1} for {image_file}:", response)
             
             # Extract the assistant's answer and add it to the answers list
             answer = response['choices'][0]['message']['content']
@@ -120,6 +104,7 @@ for image_file in image_files:
                 "question": question,
                 "answer": answer
             })
+            print(f"Response to question {j+1} for {file_name}:", answer)
             
             # Add the assistant's response to the messages for the next question
             messages.append({
@@ -128,11 +113,29 @@ for image_file in image_files:
             })
     
     # Add the answers for this image to the overall list
-    all_answers.append({
-        "image_file": image_file,
-        "answers": image_answers
-    })
+    return image_answers
 
-# Save the answers for all images to a single JSON file
-output_file_path = os.path.join(output_folder, "all_images_answers.json")
-save_answers_to_file(all_answers, output_file_path)
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', help='Path to config file', type=str, default='./example_config.yml')
+    args = parser.parse_args()
+    if args.config is not None:
+        with open(args.config, 'r') as f:
+            try:
+                cfg = yaml.safe_load(f)
+            except yaml.YAMLError as e:
+                print(e)
+    
+    for key in vars(args):
+        cfg[key] = vars(args)[key]
+    output_path = pathlib.Path(cfg['output_path'])
+
+    image_path = os.path.join(output_path, "source_mesh.png")
+    answer = query_gpt(cfg['mesh'], image_path)
+    cfg['target_prompt'] = answer[-1]['answer']
+
+    # 保存修改后的配置到 YAML 文件
+    with open(args.config, 'w') as f:
+        yaml.dump(cfg, f)
+
+    print("Done!")
