@@ -56,7 +56,7 @@ import importlib
 from accelerate import Accelerator
 from transformers import CLIPTokenizer
 import sys
-sys.path.append('/data/caiweiwei/TextDeformer-main/')
+sys.path.append('.')
 import library
 print(library.__file__)
 # from library import strategy_flux
@@ -79,31 +79,13 @@ from library.custom_train_functions import (
 )
 # 基础设置
 pipe_id = "black-forest-labs/FLUX.1-dev"
-cache_dir = '/home/i-caiweiwei/.cache/huggingface/hub'
-# lora_weight = "/data/caiweiwei/kohya_ss/outputs/mesh_image_hippopotamus_no_pose/"
-# lora_name = "mesh_image_hippopotamus_no_pose-step00003000.safetensors"
+cache_dir = '~/.cache/huggingface/hub'
 
-# lora_weight = "/data/caiweiwei/kohya_ss/outputs/nine_mesh_grid1/" #效果要比nine_mesh_grid1_clean_promt的ck效果好
-# lora_name = "nine_mesh_grid1-step00005000.safetensors"
-# lora_weight = "/data/caiweiwei/kohya_ss/outputs/mesh_nine_grid_672_clean_prompt/"
-# lora_name = "mesh_nine_grid_672_clean_prompt-step00004000.safetensors"
-
-lora_weight = "/data/caiweiwei/kohya_ss/outputs/mesh_nine_grid_672_clean_prompt_re/"
+lora_weight = "model_zoo/flux_lora"
 lora_name = "mesh_nine_grid_672_clean_prompt_epo-step00005000.safetensors"
 
-# lora_weight = "/data/caiweiwei/kohya_ss/outputs/four_mesh_grid"
-# lora_name = "four_mesh_grid-step00005000.safetensors"
-
-# lora_weight = "/data/caiweiwei/kohya_ss/outputs/nine_mesh_grid1_clean_promt/"
-# lora_name = "nine_mesh_grid1_clean_prompt-step00005000.safetensors"
-
-# output_dir = "/data/caiweiwei/kohya_ss/outputs/inference"
-# os.makedirs(output_dir, exist_ok=True)
-
-# # 设置环境变量以避免内存碎片
-# os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 # 加载模型
-pipe = FluxPipeline.from_pretrained(pipe_id, torch_dtype=torch.bfloat16, cache_dir=cache_dir)
+pipe = FluxPipeline.from_pretrained(pipe_id, torch_dtype=torch.bfloat16)
 print("Loading Lora weights")
 pipe.load_lora_weights(lora_weight, weight_name=lora_name)
 pipe.fuse_lora(lora_scale=1.0) #权重要调, lora_scale的值对图像的影响非常大

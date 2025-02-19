@@ -30,7 +30,7 @@ from tqdm import tqdm
 
 from utilities.video import Video
 from utilities.helpers import cosine_avg, create_scene, get_vp_map
-from utilities.camera import CameraBatch, get_camera_params
+from utilities.camera_l2_512re import CameraBatch, get_camera_params
 from utilities.clip_spatial import CLIPVisualEncoder
 from utilities.resize_right import resize, cubic, linear, lanczos2, lanczos3
 # from IPython import embed

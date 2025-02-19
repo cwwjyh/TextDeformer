@@ -48,15 +48,7 @@ def send_multimodal_request(api_key, messages):
 # Example usage
 api_key = "ak-39d8efgh45i6jkl23mno78pqrs12tuv4k5"
 
-# List all image files in the folder
-questions = [
-    """Knowing that a horse has a similar appearance to the input image, describe the details of the horse's appearance using content in the following format, e.g., “The nine-grid image shows different views of a whale. The whale is characterized by a huge, elongated body and a distinct head. The whale's head is characterized by a large, curved mouth and a pair of eyes. The body is streamlined and tapers toward a broad, flat tail. The mesh exhibits a faceted, low polygon style that gives the whale a geometric and simplified appearance. The absence of texture and color in the mesh indicates that it is a basic 3D model that can be used as a basis for further design and development.""",
-    """Knowing that Einstein's head has a similar appearance to the input image, describe the details of Einstein's appearance using content in the following format, e.g., “The nine-grid image shows different views of the whale. The whale is characterized by a huge, elongated body and a distinct head. The whale's head is characterized by a large, curved mouth and a pair of eyes. The body is streamlined and tapers toward a broad, flat tail. The mesh exhibits a faceted, low polygon style that gives the whale a geometric and simplified appearance. The absence of texture and color in the mesh indicates that it is a basic 3D model that can be used as a basis for further design and development.""",
-    """Knowing that Obama's head has a similar appearance to the input image, describe the details of Obama's appearance using content in the following format, e.g., “The nine-grid image shows different views of the whale. The whale is characterized by a huge, elongated body and a distinct head. The whale's head is characterized by a large, curved mouth and a pair of eyes. The body is streamlined and tapers toward a broad, flat tail. The mesh exhibits a faceted, low polygon style that gives the whale a geometric and simplified appearance. The absence of texture and color in the mesh indicates that it is a basic 3D model that can be used as a basis for further design and development.""",
-    """Knowing that Bust of Venus has a similar appearance to the input image, describe the details of Bust of Venus appearance using content in the following format, e.g., “The nine-grid image shows different views of the whale. The whale is characterized by a huge, elongated body and a distinct head. The whale's head is characterized by a large, curved mouth and a pair of eyes. The body is streamlined and tapers toward a broad, flat tail. The mesh exhibits a faceted, low polygon style that gives the whale a geometric and simplified appearance. The absence of texture and color in the mesh indicates that it is a basic 3D model that can be used as a basis for further design and development."""
-]
-
-def query_gpt(file_name, image_path):
+def query_gpt(file_name, image_path, questions):
     image_url = convert_image_to_base64(image_path)
     
     # Initialize the conversation with the image and the first question
@@ -72,7 +64,7 @@ def query_gpt(file_name, image_path):
                 },
                 {
                     "type": "text",
-                    "text": questions[0]
+                    "text": questions
                 }
             ]
         }
@@ -82,7 +74,7 @@ def query_gpt(file_name, image_path):
     image_answers = []
     
     # Process each question
-    for j, question in enumerate(questions):
+    for j, question in enumerate([questions]):
         if j > 0:
             # Add the previous answer and the new question to the messages
             messages.append({
@@ -130,9 +122,14 @@ if __name__ == '__main__':
         cfg[key] = vars(args)[key]
     output_path = pathlib.Path(cfg['output_path'])
 
+    target_prompt = cfg['text_prompt']
+    questions = f"Knowing that {target_prompt} has a similar appearance to the input image, describe the details of {target_prompt}'s appearance using content in the following format, e.g., “The nine-grid image shows different views of a whale. The whale is characterized by a huge, elongated body and a distinct head. The whale's head is characterized by a large, curved mouth and a pair of eyes. The body is streamlined and tapers toward a broad, flat tail. The mesh exhibits a faceted, low polygon style that gives the whale a geometric and simplified appearance. The absence of texture and color in the mesh indicates that it is a basic 3D model that can be used as a basis for further design and development. "
+
     image_path = os.path.join(output_path, "source_mesh.png")
-    answer = query_gpt(cfg['mesh'], image_path)
-    cfg['target_prompt'] = answer[-1]['answer']
+    answer = query_gpt(cfg['mesh'], image_path, questions)
+
+    final_answer = answer[-1]['answer'] + f"[PATCH 1] The front view of the 3D {target_prompt} mesh, [PATCH 2] The back view of the 3D {target_prompt} mesh, [PATCH 3] The right view of the 3D {target_prompt} mesh, [PATCH 4] The left view of the 3D {target_prompt} mesh, [PATCH 5] The front right view of the 3D {target_prompt} mesh, [PATCH 6] The front left view of the 3D {target_prompt} mesh, [PATCH 7] The back righ view of the 3D {target_prompt} mesh, [PATCH 8] The back left view of the 3D {target_prompt} mesh, [PATCH 9] The top view of the 3D {target_prompt} mesh."
+    cfg['target_prompt'] = final_answer
 
     # 保存修改后的配置到 YAML 文件
     with open(args.config, 'w') as f:
