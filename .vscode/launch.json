@@ -1,0 +1,61 @@
+{
+    // 使用 IntelliSense 了解相关属性。 
+    // 悬停以查看现有属性的描述。
+    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "render mesh",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/render_source_mesh.py",
+            "args": [
+                "--config=./config/donkey2camel_flux.yml",
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "finetune flux",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/finetune_flux.py",
+            "args": [
+                "--instance_data_dir=./data",
+                "--output_dir=outputs",
+                "--lr_scheduler=constant",
+                "--validation_prompt=A photo of sks dog in a bucket",
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "finetune dreambooth",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/train_dreambooth_lora_flux.py",
+            "args": [
+                "--pretrained_model_name_or_path=black-forest-labs/FLUX.1-dev",
+                "--instance_data_dir=dog-example",
+                "--output_dir=outputs",
+                "--mixed_precision=bf16",
+                "--instance_prompt=a photo of sks dog",
+                "--resolution=1024",
+                "--train_batch_size=1",
+                "--guidance_scale=1",
+                "--gradient_accumulation_steps=4",
+                "--optimizer=prodigy",
+                "--learning_rate=1.",
+                "--report_to=wandb",
+                "--lr_scheduler=constant",
+                "--lr_warmup_steps=0",
+                "--max_train_steps=500",
+                "--validation_prompt=A photo of sks dog in a bucket",
+                "--validation_epochs=25",
+                "--seed=0"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false
+        }
+    ]
+}
