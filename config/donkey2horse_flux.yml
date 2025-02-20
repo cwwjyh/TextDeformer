@@ -9,7 +9,7 @@ aug_loc: 1
 azim_max: 360.0
 azim_min: 0.0
 base_text_prompt: a donkey
-batch_size: 10
+batch_size: 18
 blocks_to_swap: 0
 bsdf: diffuse
 bucket_no_upscale: true
@@ -44,7 +44,7 @@ dynamo_backend: 'no'
 elev_alpha: 1.0
 elev_beta: 5.0
 elev_max: 60.0
-epochs: 3000
+epochs: 2000
 flux_weight: 1.0
 fov_max: 90.0
 fov_min: 30.0
@@ -121,21 +121,22 @@ seed: 12345
 single_blocks_to_swap: 0
 t5xxl: model_zoo/flux/t5xxl_fp16.safetensors
 t5xxl_max_token_length: 512
-target_prompt: 'The nine-grid image shows different views of the Bust of Venus. The
-  bust is characterized by a classical representation of a female figure with distinct
-  facial features and an elegant posture. The head features delicate, symmetrical
-  facial elements, including softly arched brows and gently closed eyes that convey
-  a serene and contemplative expression. The nose is straight and well-proportioned,
-  while the lips are slightly parted in a subtle, relaxed smile. The hair is styled
-  in flowing, wavy locks that cascade gracefully around the head and shoulders, contributing
-  to the timeless elegance of the sculpture.
-
-
-  The mesh exhibits a smooth, simplified 3D style with minimal detailing, emphasizing
-  the balanced and harmonious forms of the classical sculpture. The absence of texture
-  and color in the mesh suggests that it is a basic 3D model, capturing the essential
-  characteristics of the Bust of Venus and serving as a foundational piece for further
-  artistic development and refinement.'
+target_prompt: The nine-grid image shows different views of a horse. The horse is
+  characterized by a well-proportioned, elongated body and distinct head features.
+  The horse's head is marked by a straight profile, large eyes, and elongated ears
+  slightly pointing forward. The neck is arched and muscular, seamlessly blending
+  into a robust torso with a well-defined chest. The legs are long and slender, indicating
+  the creature's ability to run swiftly. The tail is elongated and carried low. The
+  body tapers into a defined hindquarter. The mesh exhibits a faceted, low polygon
+  style that gives the horse a geometric and simplified appearance. The absence of
+  texture and color in the mesh indicates that it is a basic 3D model that can be
+  used as a basis for further design and development.[PATCH 1] The front view of the
+  3D a horse mesh, [PATCH 2] The back view of the 3D a horse mesh, [PATCH 3] The right
+  view of the 3D a horse mesh, [PATCH 4] The left view of the 3D a horse mesh, [PATCH
+  5] The front right view of the 3D a horse mesh, [PATCH 6] The front left view of
+  the 3D a horse mesh, [PATCH 7] The back righ view of the 3D a horse mesh, [PATCH
+  8] The back left view of the 3D a horse mesh, [PATCH 9] The top view of the 3D a
+  horse mesh.
 text_prompt: a horse
 timestep_sampling: sigma
 train_blocks: all

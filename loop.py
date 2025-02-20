@@ -694,16 +694,9 @@ def loop(cfg):
         latents = pipe.vae.encode(s_log_grid_bf16).latent_dist.sample()  # 生成潜在空间表示 [1,16,85,85]
 
         latents = shift_scale_latents(latents, vae_scale_factor) #
-        # print("latens.shape: ", latents.shape)
-        # print("latents.requires_grid:", latents.requires_grad) #True
-
     
         # 将 9 宫格图像转换为潜在空间表示并计算 SDS 损失
         with torch.no_grad():
-            # s_log_grid_bf16 = s_log_grid.to(torch.bfloat16).unsqueeze(0)  # 增加批次维度 [1,3,680,680]
-            # latents = pipe.vae.encode(s_log_grid_bf16).latent_dist.sample()  # 生成潜在空间表示 [1,16,85,85]
-
-            # latents = shift_scale_latents(latents, vae_scale_factor) #latents.requires_grad=False
 
             # 计算 SDS 损失
             noise_pred, target, sigmas, weighting = get_noise_pred_and_target_Rev(

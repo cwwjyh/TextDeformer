@@ -9,7 +9,7 @@ aug_loc: 1
 azim_max: 360.0
 azim_min: 0.0
 base_text_prompt: a shoe
-batch_size: 10
+batch_size: 18
 blocks_to_swap: 0
 bsdf: diffuse
 bucket_no_upscale: true
@@ -26,7 +26,7 @@ clip_l: model_zoo/flux/clip_l.safetensors
 clip_model: ViT-B/32
 clip_skip: 1
 clip_weight: 2.0
-config: config/alien2scary_flux.yml
+config: config/shoe2_armyboot_flux.yml
 consistency_azim_filter: 20
 consistency_clip_model: ViT-B/32
 consistency_elev_filter: 30
@@ -121,15 +121,23 @@ seed: 12345
 single_blocks_to_swap: 0
 t5xxl: model_zoo/flux/t5xxl_fp16.safetensors
 t5xxl_max_token_length: 512
-target_prompt: "The nine-grid image shows different views of the Bust of Venus. The\
-  \ Bust of Venus is characterized by a graceful, elongated neck and a distinct head\
-  \ with softly stylized features. The head is adorned with flowing, abstract protrusions\
-  \ that evoke the appearance of Venus\u2019s iconic hairstyle in a minimalist manner.\
-  \ The shoulders and upper torso are simplified and geometrically shaped, tapering\
-  \ smoothly into a statuesque form. The mesh exhibits a faceted, low polygon style\
-  \ that gives the Bust of Venus a geometric and modernized appearance. The absence\
-  \ of texture and color in the mesh indicates that it is a basic 3D model that can\
-  \ be used as a basis for further design and development."
+target_prompt: The nine-grid image shows different views of an army boot. The army
+  boot is characterized by a robust, utilitarian design and a distinct structure.
+  The boot's main body features a high ankle collar that provides support and protection.
+  The sole is thick and flat, built for durability and rough terrain. The toe area
+  is slightly rounded, structured to shield the toes from impact. The ankle section
+  rises sharply and connects seamlessly to the sole, forming a sturdy upper that envelops
+  the foot and ankle. The design appears minimalistic and functional, emphasizing
+  practicality over ornamentation. The mesh exhibits a smooth, low-detail 3D model
+  style, characterized by a faceted and simplified surface. The absence of fine details,
+  textures, and color suggests that this is a basic 3D model likely used as a conceptual
+  prototype for further enhancement and detailing.[PATCH 1] The front view of the
+  3D a army boot mesh, [PATCH 2] The back view of the 3D a army boot mesh, [PATCH
+  3] The right view of the 3D a army boot mesh, [PATCH 4] The left view of the 3D
+  a army boot mesh, [PATCH 5] The front right view of the 3D a army boot mesh, [PATCH
+  6] The front left view of the 3D a army boot mesh, [PATCH 7] The back righ view
+  of the 3D a army boot mesh, [PATCH 8] The back left view of the 3D a army boot mesh,
+  [PATCH 9] The top view of the 3D a army boot mesh.
 text_prompt: a army boot
 timestep_sampling: sigma
 train_blocks: all

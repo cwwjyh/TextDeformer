@@ -41,7 +41,6 @@ from mathutils import Vector
 # import OpenEXR
 # import Imath
 from PIL import Image
-import megfile
 # import blenderproc as bproc
 
 bpy.app.debug_value=256
@@ -853,12 +852,7 @@ def save_images(object_file: str) -> None:
 if __name__ == "__main__":
     # try:
     start_i = time.time()
-    if args.object_path.startswith("http"):
-        local_path = download_object(args.object_path)
-    elif args.object_path.startswith("s3"):
-        local_path = megfile_download_obj(args.object_path, args.object_uid)
-    else:
-        local_path = args.object_path
+    local_path = args.object_path
         
     if not os.path.exists(local_path):
         print("object does not exists")
