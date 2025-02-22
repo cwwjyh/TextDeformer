@@ -29,6 +29,8 @@
 #   fi
 # done
 
+batch_size = [1,2,3,4]
+
 for config_file in config/*.yml; do
   if [ -f "$config_file" ]; then
     # 输出正在使用的配置文件名

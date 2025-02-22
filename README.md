@@ -55,6 +55,8 @@ CUDA_VISIBLE_DEVICES=0 python main.py --config ./config/vase3_cactus_flux.yml
 CUDA_VISIBLE_DEVICES=1 python main.py --config ./config/vase2_a_chinese-latern_flux.yml
 CUDA_VISIBLE_DEVICES=0 python main.py  --config ./config/hand2octupus.yml
 
+CUDA_VISIBLE_DEVICES=0 python main.py --config config/alien2scary_flux.yml
+
 
 ```
 
@@ -93,4 +95,10 @@ CUDA_VISIBLE_DEVICES=0 python infer_flux_lora.py --config ./config/effel2pagoda_
 CUDA_VISIBLE_DEVICES=0 python infer_flux_lora.py --config ./config/vase3_cactus_flux.yml
 CUDA_VISIBLE_DEVICES=0 python infer_flux_lora.py --config ./config/vase2_a_chinese-latern_flux.yml
 CUDA_VISIBLE_DEVICES=0 python infer_flux_lora.py --config ./config/hand2octupus.yml
+```
+
+
+### Multi-GPU running 
+```bash
+bash ./batch_run_multi_gpu.sh config/alien2scary_flux.yml
 ```

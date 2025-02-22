@@ -4,6 +4,7 @@ import torch
 import random
 import argparse
 import numpy as np
+import ipdb as pdb
 
 from loop_l2 import loop
 
@@ -74,7 +75,7 @@ def main():
                 cfg = yaml.safe_load(f)
             except yaml.YAMLError as e:
                 print(e)
-    
+
     for key in vars(args):
         cfg[key] = vars(args)[key]
 
@@ -86,14 +87,12 @@ def main():
     torch.cuda.manual_seed(cfg['seed'])
     torch.backends.cudnn.deterministic = True
 
-    # # 在这里添加 extra_ldflags
-    # extra_ldflags = ['-L/usr/local/cuda/lib64']
 
-    loop(cfg)
+    # loop(cfg)
     # # 假设在这里调用 loop 函数，并传递 extra_ldflags
     # loop(cfg, extra_ldflags=extra_ldflags)  # 确保 loop 函数能够接收这个参数
 
-    print('Done')
+    print(f'Done on GPU {torch.cuda.current_device()}')
 
 if __name__ == '__main__':
     main()
