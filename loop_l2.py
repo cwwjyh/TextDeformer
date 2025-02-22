@@ -34,7 +34,27 @@ from utilities.camera import CameraBatch, get_camera_params
 from utilities.clip_spatial import CLIPVisualEncoder
 from utilities.resize_right import resize, cubic, linear, lanczos2, lanczos3
 # from IPython import embed
-from src.guidance.stable_diffusion import StableDiffusionGuidance
+# from src.guidance.stable_diffusion import StableDiffusionGuidance
+def make_grid_with_cat(images, nrow):
+    """
+    使用 torch.cat 拼接图像，保留梯度信息。
+    :param images: 输入图像张量，形状为 [N, C, H, W]
+    :param nrow: 每行的图像数量
+    :return: 拼接后的图像张量，形状为 [C, H * nrows, W * ncols]
+    """
+    N, C, H, W = images.shape
+    ncols = (N + nrow - 1) // nrow  # 计算列数
+
+    # 按行拼接图像
+    rows = []
+    for i in range(ncols):
+        row_images = images[i * nrow:(i + 1) * nrow]
+        row = torch.cat([img for img in row_images], dim=-1)  # 按列拼接
+        rows.append(row)
+
+    # 按行拼接所有行
+    grid = torch.cat(rows, dim=-2)
+    return grid
 
 def loop(cfg):
     output_path = pathlib.Path(cfg['output_path'])
@@ -94,17 +114,6 @@ def loop(cfg):
     #load_mesh.v_pose为source mesh的顶点， load_mesh.t_pos_idx为source mesh的面片
     ms.add_mesh(pymeshlab.Mesh(vertex_matrix=load_mesh.v_pos.cpu().numpy(), face_matrix=load_mesh.t_pos_idx.cpu().numpy()))
     ms.save_current_mesh(str(output_path / 'tmp' / 'mesh.obj'), save_vertex_color=False) #再次保存当前网格，不保存顶点颜色。
-
-    #TODO之前为cww add
-    #  Initialize guidance
-    # guidance = StableDiffusionGuidance(
-    #     device=torch.device("cuda"),
-    #     lora_path=cfg.lora_dir,
-    #     lora_scale=cfg.lora_scale,
-    #     grad_clamp_val=cfg.clamp_val,
-    # )
-    # print(f"Loaded guidance: {type(guidance)}")
-
     # Determine guidance prompt
     # prompt = f"a photo of {cfg.text_prompt}" #before writting
     prompt = f"a photo of sks {cfg.text_prompt}"
@@ -179,9 +188,9 @@ def loop(cfg):
     reference_image_path = cfg.reference_image_path  # 从配置中获取参考图像路径
     reference_image = Image.open(reference_image_path).convert('RGB')  # 加载图像并转换为RGB格式
     reference_image = torchvision.transforms.ToTensor()(reference_image).unsqueeze(0).to(device)  # 转换为张量并添加批次维度
-    reference_image = resize(reference_image, out_shape=(224, 224), interp_method=resize_method)  # 确保参考图像的大小与训练渲染图像一致
-    reference_image = reference_image.repeat(25, 1, 1, 1)  # 在第0个维度上重复25次
-    print("reference_image.shap:", reference_image) #(1,3,224,224)
+    # reference_image = resize(reference_image, out_shape=(224, 224), interp_method=resize_method)  # 确保参考图像的大小与训练渲染图像一致
+    # reference_image = reference_image.repeat(25, 1, 1, 1)  # 在第0个维度上重复25次
+    print("reference_image.shap:", reference_image.shape) #(1,3,224,224)
     l2_loss = 0.0
     for it in t_loop:
         # cams = torch.utils.data.DataLoader(cams_data, cfg.batch_size, num_workers=0, pin_memory=True) #创建相机数据加载器。
@@ -307,7 +316,9 @@ def loop(cfg):
         ).permute(0, 3, 1, 2)
 
         train_render = resize(train_render, out_shape=(224, 224), interp_method=resize_method) #torch.Size([25, 3, 224, 224])
-        
+          # 使用 torch.cat 拼接函数
+        s_log = train_render[:9, :, :, :]
+        s_log_grid = make_grid_with_cat(s_log, nrow=3)
         # breakpoint()
         #渲染最终网格并返回光栅化映射。
         train_rast_map = render.render_mesh(
@@ -346,13 +357,20 @@ def loop(cfg):
         ).permute(0, 3, 1, 2)
         base_render = resize(base_render, out_shape=(224, 224), interp_method=resize_method)
         
+         # 仅在满足条件时保存 9 宫格图像
         if it % cfg.log_interval_im == 0:
-            log_idx = torch.randperm(cfg.batch_size)[:5]#随机选择5个索引以进行日志记录。
-            s_log = train_render[log_idx, :, :, :] #从训练渲染中提取选定的图像。
-            s_log = torchvision.utils.make_grid(s_log) #将选定的图像合并为一个网格。
-            ndarr = s_log.mul(255).add_(0.5).clamp_(0, 255).permute(1, 2, 0).to('cpu', torch.uint8).numpy()#将图像数据转换为NumPy数组，以便保存。
-            im = Image.fromarray(ndarr) #从NumPy数组创建图像对象。
-            im.save(str(output_path / 'images' / f'epoch_{it}.png')) #将图像保存到指定路径
+            ndarr = s_log_grid.mul(255).add_(0.5).clamp_(0, 255).permute(1, 2, 0).to('cpu', torch.uint8).numpy()
+            im = Image.fromarray(ndarr)
+            im.save(str(output_path / 'images' / f'epoch_{it}_new.png'))
+
+            #随机获取5张图片保存
+        if it % cfg.log_interval_im == 0:
+            # log_idx = torch.randperm(cfg.batch_size)[9:13]
+            s_log = train_render[9:18, :, :, :]
+            s_log = torchvision.utils.make_grid(s_log)
+            ndarr = s_log.mul(255).add_(0.5).clamp_(0, 255).permute(1, 2, 0).to('cpu', torch.uint8).numpy()
+            im = Image.fromarray(ndarr)
+            im.save(str(output_path / 'images' / f'epoch_{it}_random.png'))
 
             obj.write_obj(
                 str(output_path / 'mesh_final'),
@@ -361,72 +379,51 @@ def loop(cfg):
         
         optimizer.zero_grad()
 
-        #compute sds loss(cww add)
-        l_guidance = torch.tensor(0.0).to(device) #初始化引导损失为0。
-        # if args.pipe_cfg.w_guidance > 0.0:  # Compute guidance loss after keypoint only optimization  
-        # breakpoint()
-        #目的：想渲染正视角的时候，进行l2 loss，其他视角则进行原有的loss
-        # 1. 获取索引并创建mask
-        index = params_camera['index']
-        mask = torch.eq(index % 4, 0)  # mask为True的位置是需要多计算loss的样本
-        # if params_camera['index'] % 4 == 0:
-        #计算引导损失，使用当前的训练图像和目标提示。
-        # 计算sd loss
-        # for image in train_render[mask]:
-        #     # print("image.size()",image.size())
-        #     l_guidance = guidance(
-        #         prompt, #换成目标prompt
-        #         image=image.unsqueeze(0), #train_render.shape = torch.Size([1, 3, 224, 224]) #batch_size=1
-        #         cfg_scale=cfg.cfg_scale,
-        #     )
-        #     l_guidance += l_guidance
-        # 计算参考图像与渲染的正视角图像之间的L2损失
-          # 生成图像并转换为 latent 空间
-        # with torch.no_grad():
-        #     latents = pipe.vae.encode(train_render[mask]).latent_dist.sample()
-        # sds_loss = sds_loss(pipe, noise_scheduler, latents, cfg.target_prompt)
-        l2_loss = torch.nn.functional.mse_loss(train_render[mask], reference_image[mask])
-        #保存被mask选中的图像
-        if it % cfg.log_interval_im == 0:  # 使用与其他图像相同的保存间隔
-            # 创建保存目录
-            comparison_save_dir = output_path / 'images' / 'comparison'
-            os.makedirs(comparison_save_dir, exist_ok=True)
+        l2_loss = torch.nn.functional.mse_loss(s_log_grid, reference_image)
+        logger.add_scalar('l2_loss', l2_loss, global_step=it)
+        # #保存被mask选中的图像
+        # if it % cfg.log_interval_im == 0:  # 使用与其他图像相同的保存间隔
+        #     # 创建保存目录
+        #     comparison_save_dir = output_path / 'images' / 'comparison'
+        #     os.makedirs(comparison_save_dir, exist_ok=True)
             
-            # 获取被mask选中的图像
-            masked_reference = reference_image[mask]
-            masked_render = train_render[mask]
+        #     # 获取被mask选中的图像
+        #     masked_reference = reference_image[mask]
+        #     masked_render = train_render[mask]
             
-            # 如果有被选中的图像
-            if masked_reference.size(0) > 0:
-                # 将参考图像和渲染图像拼接在一起
-                comparison = torch.cat([masked_reference, masked_render], dim=0)
-                comparison_grid = torchvision.utils.make_grid(
-                    comparison, 
-                    nrow=masked_reference.size(0),  # 每行显示所有参考图像
-                    padding=2
-                )
+        #     # 如果有被选中的图像
+        #     if masked_reference.size(0) > 0:
+        #         # 将参考图像和渲染图像拼接在一起
+        #         comparison = torch.cat([masked_reference, masked_render], dim=0)
+        #         comparison_grid = torchvision.utils.make_grid(
+        #             comparison, 
+        #             nrow=masked_reference.size(0),  # 每行显示所有参考图像
+        #             padding=2
+        #         )
                 
-                # 转换并保存图像
-                ndarr = comparison_grid.mul(255).add_(0.5).clamp_(0, 255).permute(1, 2, 0).to('cpu', torch.uint8).numpy()
-                im = Image.fromarray(ndarr)
-                im.save(str(comparison_save_dir / f'comparison_epoch_{it}.png'))
+        #         # 转换并保存图像
+        #         ndarr = comparison_grid.mul(255).add_(0.5).clamp_(0, 255).permute(1, 2, 0).to('cpu', torch.uint8).numpy()
+        #         im = Image.fromarray(ndarr)
+        #         im.save(str(comparison_save_dir / f'comparison_epoch_{it}.png'))
                 
         # breakpoint()
         # CLIP similarity losses
-        normalized_clip_render = (train_render - clip_mean[None, :, None, None]) / clip_std[None, :, None, None] #对形变mesh渲染图片进行归一化
-        image_embeds = model.encode_image( #形变mesh渲染图片进行clip编码为image embedding
+        train_render4 = train_render[9:18, :, :, :]  # 提取后 4 张图片
+        normalized_clip_render = (train_render4 - clip_mean[None, :, None, None]) / clip_std[None, :, None, None] #对形变mesh渲染图片进行归一化
+        normalized_clip_render_original = (train_render - clip_mean[None, :, None, None]) / clip_std[None, :, None, None] #对形变mesh渲染图片进行归一化
+        image_embeds = model.encode_image( #mesh渲染后几张图片进行clip编码为image embedding
             normalized_clip_render
         )
         with torch.no_grad():
-            normalized_base_render = (base_render - clip_mean[None, :, None, None]) / clip_std[None, :, None, None]
+            normalized_base_render = (base_render[9:18, :, :, :] - clip_mean[None, :, None, None]) / clip_std[None, :, None, None]
             base_embeds = model.encode_image(normalized_base_render)
         
-        orig_image_embeds = image_embeds.clone() / image_embeds.norm(dim=1, keepdim=True)
+        image_embeds = image_embeds.clone() / image_embeds.norm(dim=1, keepdim=True)
         delta_image_embeds = image_embeds - base_embeds #计算当前图像嵌入与基础图像嵌入之间的差异。
         delta_image_embeds = delta_image_embeds / delta_image_embeds.norm(dim=1, keepdim=True)
 
         #计算当前图像嵌入与目标文本嵌入之间的余弦相似度损失。
-        clip_loss = cosine_avg(orig_image_embeds, target_text_embeds)  #对应公式（2）
+        clip_loss = cosine_avg(image_embeds, target_text_embeds)  #对应公式（2）
         #计算差异图像嵌入与目标文本差异嵌入之间的余弦相似度损失。
         delta_clip_loss = cosine_avg(delta_image_embeds, delta_text_embeds) #对应公式（3）
         logger.add_scalar('clip_loss', clip_loss, global_step=it)
@@ -456,7 +453,7 @@ def loop(cfg):
         flat_patch_map = curr_patch_map[..., 0] * (((224 - fe.old_stride) / fe.new_stride) + 1) + curr_patch_map[..., 1]
         
         # Deep features
-        patch_feats = fe(normalized_clip_render)
+        patch_feats = fe(normalized_clip_render_original)
         flat_patch_map[flat_patch_map > patch_feats[0].shape[-1] - 1] = patch_feats[0].shape[-1]
         flat_patch_map = flat_patch_map.long()[:, None, :].repeat(1, patch_feats[0].shape[1], 1)
 
@@ -477,8 +474,7 @@ def loop(cfg):
         #     cfg.clip_weight * clip_loss + cfg.delta_clip_weight * delta_clip_loss + \
         #     cfg.regularize_jacobians_weight * r_loss - cfg.consistency_loss_weight * consistency_loss
         # breakpoint()
-        total_loss = cfg.sds_weight * l_guidance + \
-            cfg.clip_weight * clip_loss + cfg.delta_clip_weight * delta_clip_loss + \
+        total_loss = cfg.clip_weight * clip_loss + cfg.delta_clip_weight * delta_clip_loss + \
             cfg.regularize_jacobians_weight * r_loss + cfg.l2_weight*l2_loss 
         logger.add_scalar('total_loss', total_loss, global_step=it)
 

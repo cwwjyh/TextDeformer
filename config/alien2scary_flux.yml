@@ -106,7 +106,7 @@ output_path: ./outputs/alien2scaery_alien_flux
 persistent_data_loader_workers: 0
 pretrained_model_name_or_path: model_zoo/flux/flux1-dev.safetensors
 prior_loss_weight: 1
-reference_image_path: /data/caiweiwei/kohya_ss/outputs/mesh_image_donkey2horse/sample/mesh_image_donkey2horse_001000_00_20241230183602.png
+reference_image_path: ./outputs/alien2scaery_alien_flux/infer_flux.png
 regularize_jacobians_weight: 0.5
 resize_method: cubic
 retriangulate: 0

@@ -5,7 +5,7 @@ import random
 import argparse
 import numpy as np
 
-from loop import loop
+from loop_l2 import loop
 
 
 def main():
